@@ -75,7 +75,7 @@ function renderCards() {
         <h3>${s.icon} ${esc(s.name)}</h3>
         <p class="tag">${esc(s.description)}</p>
         <div class="svc-meta">
-          <span class="price">from ${fmt(s.packages[0].price)}</span>
+          <span class="price">from ${fmtDual(s.packages[0].price)}</span>
           <span class="rating">★ ${s.rating} (${s.orders}+)</span>
         </div>
         <div style="color:var(--muted);font-size:.82rem;margin-top:8px">⏱️ ~${s.deliveryDays} day delivery</div>

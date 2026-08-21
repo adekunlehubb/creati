@@ -94,10 +94,11 @@
           <span class="bi-item">Source Files</span>
         </div>
         <a href="/order?service=brand-in-a-box" class="btn btn-primary" style="font-size:1.05rem;padding:14px 30px">Get Your Brand Kit →</a>
-        <span style="margin-left:14px;color:var(--muted);font-size:.88rem">3 packages from $45</span>
+        <span style="margin-left:14px;color:var(--muted);font-size:.88rem">3 packages from $45 / ₦69,750</span>
       </div>
       <div class="bh-right">
         <div class="bh-price">$45<small> to start</small></div>
+        <div style="color:var(--muted);font-size:.88rem;margin-top:4px">≈ ₦69,750</div>
         <div style="color:var(--muted);font-size:.88rem;margin-top:8px">Save 40% vs ordering separately</div>
       </div>
     </div>
@@ -226,7 +227,7 @@ document.querySelectorAll('.faq-q').forEach(btn => {
           <h3>${s.icon} ${esc(s.name)}</h3>
           <p class="tag">${esc(s.tagline)}</p>
           <div class="svc-meta">
-            <span class="price">from ${fmt(s.packages[0].price)}</span>
+            <span class="price">from ${fmtDual(s.packages[0].price)}</span>
             <span class="rating">★ ${s.rating}</span>
           </div>
           <a href="/order?service=${s.id}" class="btn btn-primary btn-sm mt-2" style="width:100%">Order Now</a>
@@ -253,7 +254,7 @@ document.querySelectorAll('.faq-q').forEach(btn => {
         <div class="tpl-body">
           <h3>${esc(t.title)}</h3>
           <p>${esc(t.description)}</p>
-          <div class="tpl-price">from ${fmt(t.priceFrom)}</div>
+          <div class="tpl-price">from ${fmtDual(t.priceFrom)}</div>
           <a href="/naija-templates" class="btn btn-primary btn-sm" style="width:100%">View Template →</a>
         </div>
       </div>`).join('');

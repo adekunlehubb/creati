@@ -235,10 +235,11 @@ process.on('SIGINT', flushSync);
 
 function getDb() {
   if (!db) {
-    // Synchronous callers (server.js does `const db = getDb()` at module load)
-    // need the object available. We hydrate async on load(); if getDb() is
-    // called before load() finishes we throw so the boot sequence can await.
-    throw new Error('Postgres backend not yet loaded — await load() first');
+    // If load() failed (PG unavailable), fall back to the JSON db so the
+    // app keeps working in read-only-ish mode instead of crashing every
+    // endpoint that calls getDb(). The JSON db shares the same shape.
+    console.warn('getDb() called before load() — using JSON fallback db');
+    db = dbFile.getDb();
   }
   return db;
 }

@@ -133,6 +133,16 @@ input, select, textarea { font-family: inherit; }
 .svc-meta .price { font-weight: 700; color: var(--accent2); }
 .svc-meta .rating { color: var(--warn); font-size: .85rem; }
 
+/* ---------- Dual currency (USD + NGN) ---------- */
+.dual-price { display: inline-flex; flex-direction: column; line-height: 1.2; }
+.dual-price .dual-usd { font-weight: 700; color: var(--accent2); font-size: 1rem; }
+.dual-price .dual-ngn { font-weight: 600; color: var(--muted); font-size: .82rem; }
+.dual-price .dual-sep { display: none; }
+.dual-price.inline { flex-direction: row; align-items: baseline; gap: 4px; }
+.dual-price.inline .dual-usd { font-size: inherit; }
+.dual-price.inline .dual-ngn { font-size: .85em; }
+.dual-price.inline .dual-sep { display: inline; color: var(--muted); font-size: .8em; }
+
 /* ---------- Steps ---------- */
 .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 .step { text-align: center; padding: 28px 18px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); }
@@ -234,6 +244,8 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .pkg-card.selected { border-color: var(--primary); background: var(--card2); box-shadow: 0 0 0 3px rgba(108, 92, 231, .25); }
 .pkg-card .pname { font-weight: 700; font-size: 1.05rem; }
 .pkg-card .pprice { font-size: 1.9rem; font-weight: 800; margin: 10px 0; color: var(--accent2); }
+.pkg-card .pprice .dual-price .dual-usd { font-size: 1.9rem; }
+.pkg-card .pprice .dual-price .dual-ngn { font-size: 1rem; font-weight: 600; }
 .pkg-card .pdesc { color: var(--muted); font-size: .86rem; margin-bottom: 14px; }
 .pkg-card ul { list-style: none; }
 .pkg-card li { font-size: .86rem; color: var(--muted); padding: 5px 0 5px 22px; position: relative; }

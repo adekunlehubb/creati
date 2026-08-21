@@ -37,6 +37,14 @@ function fmt(usd) {
   const rounded = val >= 100 ? Math.round(val) : Math.round(val * 100) / 100;
   return (SYMBOLS[c] || '$') + rounded.toLocaleString();
 }
+// Dual-currency formatter: shows USD and NGN side by side
+// e.g. fmtDual(45) => "$45 / ₦69,750"
+function fmtDual(usd) {
+  const usdStr = '$' + (usd >= 100 ? Math.round(usd) : Math.round(usd * 100) / 100).toLocaleString();
+  const ngnVal = Math.round(usd * (RATES.NGN || 1550));
+  const ngnStr = '\u20a6' + ngnVal.toLocaleString();
+  return '<span class="dual-price"><span class="dual-usd">' + usdStr + '</span><span class="dual-sep"> / </span><span class="dual-ngn">' + ngnStr + '</span></span>';
+}
 function esc(s) {
   return String(s || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }

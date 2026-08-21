@@ -81,7 +81,7 @@ function render() {
         <div class="pkg-card ${p.id === selectedPkg ? 'selected' : ''}" data-pkg="${p.id}">
           ${i === 1 ? '<div class="pkg-pop">MOST POPULAR</div>' : ''}
           <div class="pname">${esc(p.name)}</div>
-          <div class="pprice">${fmt(p.price)}</div>
+          <div class="pprice">${fmtDual(p.price)}</div>
           <div class="pdesc">${esc(p.desc)}</div>
           <ul>${p.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
         </div>`).join('')}
