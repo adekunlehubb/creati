@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reviews & Before/After Showcase — CreatiHub</title>
+<meta name="description" content="See real before-and-after transformations from CreatiHub customers. Read verified reviews and submit your own.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⭐</text></svg>">
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+
+<section class="hero" style="padding:56px 0 30px">
+  <div class="container" style="max-width:920px;text-align:center">
+    <div style="font-size:3rem;margin-bottom:10px">⭐✨</div>
+    <h1 style="font-size:2.5rem;line-height:1.15;margin-bottom:14px">Real Results, <span class="grad-text">Real Reviews</span></h1>
+    <p class="lead" style="max-width:620px;margin:0 auto 20px">See the before-and-after transformations from real CreatiHub customers. Every review is from a verified completed order.</p>
+    <div class="hero-badges" style="justify-content:center">
+      <div class="hero-badge">✅ <b>Verified</b> customers</div>
+      <div class="hero-badge">📸 <b>Before & after</b> showcases</div>
+      <div class="hero-badge">⭐ <b>4.9/5</b> average</div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:10px">
+  <div class="container">
+    <div class="rev-carousel" id="revCarousel"><div class="empty">Loading reviews…</div></div>
+  </div>
+</section>
+
+<section class="section" style="background:var(--bg2);padding:44px 0">
+  <div class="container" style="max-width:680px">
+    <h2 class="section-title" style="font-size:1.6rem">Share Your Experience 📝</h2>
+    <p class="section-sub">Completed an order with us? Leave a review and show off your before-and-after transformation. Your review helps other customers and earns you referral credit!</p>
+    <div class="panel" id="reviewFormWrap">
+      <div id="revLoginHint" style="display:none">
+        <div class="form-ok" style="margin-bottom:16px">Please log in to submit a review.</div>
+        <a href="/auth?redirect=/reviews" class="btn btn-primary">Log in / Sign up →</a>
+      </div>
+      <div id="revForm" style="display:none">
+        <div class="field">
+          <label>Select your completed order</label>
+          <select id="revOrder"><option value="">— Select an order —</option></select>
+        </div>
+        <div class="field">
+          <label>Your rating</label>
+          <div id="revStars" style="display:flex;gap:6px;font-size:1.8rem;cursor:pointer"></div>
+        </div>
+        <div class="field">
+          <label>Your review</label>
+          <textarea id="revText" placeholder="Tell us about your experience..." style="min-height:100px" maxlength="500"></textarea>
+        </div>
+        <div class="field">
+          <label>Before image URL <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+          <input id="revBefore" placeholder="https://...">
+        </div>
+        <div class="field">
+          <label>After image URL <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+          <input id="revAfter" placeholder="https://...">
+        </div>
+        <div id="revMsg"></div>
+        <button class="btn btn-primary" id="revSubmit" style="width:100%">Submit Review →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="/js/app.js"></script>
+<script>
+renderNav('home');
+renderFooter();
+initChatWidget();
+
+let selectedRating = 0;
+
+// Load public reviews
+(async () => {
+  try {
+    const res = await API.get('/reviews');
+    const reviews = res.reviews || [];
+    const carousel = document.getElementById('revCarousel');
+    if (!reviews.length) { carousel.innerHTML = '<div class="empty">No reviews yet. Be the first to share your experience!</div>'; return; }
+    carousel.innerHTML = reviews.map(r => {
+      const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+      const baHtml = (r.beforeImage || r.afterImage) ? `
+        <div class="rev-ba">
+          ${r.beforeImage ? `<div class="ba-img"><img src="${esc(r.beforeImage)}" alt="Before"><span class="ba-label before">BEFORE</span></div>` : ''}
+          ${r.afterImage ? `<div class="ba-img"><img src="${esc(r.afterImage)}" alt="After"><span class="ba-label after">AFTER</span></div>` : ''}
+        </div>` : '';
+      const featured = r.featured ? 'featured' : '';
+      return `
+      <div class="rev-card ${featured}">
+        ${baHtml}
+        <div class="rev-stars">${stars}</div>
+        <div class="rev-text">"${esc(r.text)}"</div>
+        <div class="rev-who">
+          <div class="av">${esc((r.userName || 'A').charAt(0).toUpperCase())}</div>
+          <div><b>${esc(r.userName)}</b><span>${esc(r.serviceName || 'Verified customer')}</span></div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('revCarousel').innerHTML = '<div class="empty">Could not load reviews.</div>';
+  }
+})();
+
+// Review form
+const user = API.user();
+if (!user) {
+  document.getElementById('revLoginHint').style.display = 'block';
+} else {
+  document.getElementById('revForm').style.display = 'block';
+  // Load user's completed orders
+  (async () => {
+    try {
+      const res = await API.get('/me/orders');
+      const orders = (res.orders || []).filter(o => o.status === 'completed');
+      const sel = document.getElementById('revOrder');
+      if (!orders.length) {
+        sel.innerHTML = '<option value="">No completed orders yet — complete an order to review!</option>';
+      } else {
+        sel.innerHTML = '<option value="">— Select an order —</option>' + orders.map(o => `<option value="${esc(o.id)}">${esc(o.id)} — ${esc(o.serviceName)}</option>`).join('');
+      }
+    } catch {}
+  })();
+  // Star rating
+  const starsDiv = document.getElementById('revStars');
+  function renderStars() {
+    starsDiv.innerHTML = [1,2,3,4,5].map(n => `<span data-n="${n}" style="color:${n <= selectedRating ? 'var(--warn)' : 'var(--border)'}">★</span>`).join('');
+    starsDiv.querySelectorAll('span').forEach(s => {
+      s.addEventListener('click', () => { selectedRating = parseInt(s.dataset.n); renderStars(); });
+    });
+  }
+  renderStars();
+
+  document.getElementById('revSubmit').addEventListener('click', async () => {
+    const msg = document.getElementById('revMsg');
+    const orderId = document.getElementById('revOrder').value;
+    if (!orderId) { msg.innerHTML = '<div class="form-error">Please select an order to review.</div>'; return; }
+    if (!selectedRating) { msg.innerHTML = '<div class="form-error">Please select a star rating.</div>'; return; }
+    const text = document.getElementById('revText').value.trim();
+    if (!text) { msg.innerHTML = '<div class="form-error">Please write your review.</div>'; return; }
+    msg.innerHTML = '';
+    try {
+      await API.post('/reviews', {
+        orderId, rating: selectedRating, text,
+        beforeImage: document.getElementById('revBefore').value.trim() || undefined,
+        afterImage: document.getElementById('revAfter').value.trim() || undefined
+      });
+      msg.innerHTML = '<div class="form-ok">🎉 Review submitted! It will appear here after admin approval. Thank you!</div>';
+      document.getElementById('revText').value = '';
+      selectedRating = 0; renderStars();
+    } catch (e) {
+      msg.innerHTML = '<div class="form-error">' + esc(e.message) + '</div>';
+    }
+  });
+}
+</script>
+</body>
+</html>

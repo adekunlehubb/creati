@@ -15,6 +15,7 @@
     <aside class="dash-side">
       <a href="#orders" class="active" data-view="orders">📦 My Orders</a>
       <a href="#subs" data-view="subs">🔁 Subscriptions</a>
+      <a href="#referrals" data-view="referrals">🎁 Referrals</a>
       <a href="#new" data-view="new">🛍️ New Order</a>
       <a href="#profile" data-view="profile">👤 Profile</a>
       <a href="#security" data-view="security">🔐 Security</a>
@@ -48,6 +49,7 @@ async function renderView() {
   sideLinks.forEach(a => a.classList.toggle('active', a.dataset.view === view));
   if (view === 'orders') return renderOrders();
   if (view === 'subs') return renderSubscriptions();
+  if (view === 'referrals') return renderReferrals();
   if (view === 'new') return renderNew();
   if (view === 'profile') return renderProfile();
   if (view === 'security') return renderSecurity();
@@ -76,7 +78,14 @@ async function renderOrders() {
         <div class="order-svc">${esc(o.serviceName)} — ${esc(o.packageName)} package</div>
         <div style="color:var(--muted);font-size:.85rem;margin-top:4px">${fmt(o.price)} • Paystack${o.paymentReference ? ' • ref ' + esc(o.paymentReference) : ''} • ${timeAgo(o.createdAt)}</div>
         ${o.requirements ? `<div class="order-req">📝 ${esc(o.requirements)}</div>` : ''}
-        ${o.paymentStatus !== 'paid' && o.status !== 'cancelled' ? `
+        ${o.installmentPlan && o.installmentPlan !== 'pay-full' ? `
+          <div style="background:rgba(0,212,255,.08);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;margin-top:12px;font-size:.86rem">
+            💳 <b>Installment Plan:</b> ${esc(o.installmentSplits || '2')} payments 
+            · Paid: ${fmt(o.installmentPaidUsd || 0)} of ${fmt(o.price)}
+            ${(o.installments || []).filter(i => !i.paid).length > 0 ? `<div style="margin-top:8px"><button class="btn btn-primary btn-sm" data-instpay="${o.id}">Pay Next Installment →</button></div>` : ''}
+          </div>` : ''}
+        ${o.whatsappDelivery ? `<div style="color:var(--muted);font-size:.82rem;margin-top:8px">💬 WhatsApp delivery: ${esc(o.whatsappNumber || 'N/A')}</div>` : ''}
+        ${o.paymentStatus !== 'paid' && o.status !== 'cancelled' && !(o.installmentPlan && o.installmentPlan !== 'pay-full') ? `
           <div class="pay-banner">
             <span>⚠️ This order is waiting for payment.</span>
             <button class="btn btn-primary btn-sm" data-pay="${o.id}">Pay now with Paystack →</button>
@@ -118,6 +127,38 @@ async function renderOrders() {
         toast('Error: ' + e.message);
         btn.disabled = false;
         btn.textContent = 'Pay now with Paystack →';
+      }
+    }));
+    // Wire "Pay Next Installment" buttons
+    list.querySelectorAll('button[data-instpay]').forEach(btn => btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spin"></span> Opening checkout…';
+      try {
+        const { payment } = await API.post('/installments/' + btn.dataset.instpay + '/pay');
+        if (payment.demo) {
+          location.href = '/payment/callback?reference=' + encodeURIComponent(payment.reference) + '&demo=1&installment=1';
+          return;
+        }
+        const u = API.user();
+        if (window.PaystackPop && payment.publicKey) {
+          const popup = new PaystackPop();
+          popup.newTransaction({
+            key: payment.publicKey, email: u.email, amount: payment.amount,
+            currency: payment.currency, reference: payment.reference,
+            onSuccess: async (txn) => {
+              try { await API.get('/installments/' + btn.dataset.instpay + '/verify/' + encodeURIComponent(txn.reference || payment.reference)); } catch {}
+              toast('Installment payment confirmed! 💳');
+              renderOrders();
+            },
+            onCancel: () => { btn.disabled = false; btn.textContent = 'Pay Next Installment →'; }
+          });
+        } else if (payment.authorizationUrl) {
+          location.href = payment.authorizationUrl;
+        }
+      } catch (e) {
+        toast('Error: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = 'Pay Next Installment →';
       }
     }));
   } catch (e) {
@@ -171,6 +212,56 @@ async function cancelSub(id) {
     alert('Could not cancel: ' + (e.message || 'Unknown error'));
   }
 }
+
+// ---------------- Referral Program ----------------
+async function renderReferrals() {
+  main.innerHTML = `
+    <div class="page-head"><h2>🎁 Referral Program</h2></div>
+    <div id="refContent"><div class="empty">Loading your referral info…</div></div>`;
+  try {
+    const res = await API.get('/referrals');
+    const r = res.referral || {};
+    const stats = res.stats || { totalReferrals: 0, completedReferrals: 0, creditEarned: 0 };
+    const credit = res.creditUsd || 0;
+    const cfg = res.config || { creditUsd: 2, bonusUsd: 2 };
+    document.getElementById('refContent').innerHTML = `
+      <div class="ref-card">
+        <h3 style="margin-bottom:6px">🎁 Refer Friends, Earn Credit!</h3>
+        <p style="color:var(--muted);font-size:.9rem;line-height:1.6;margin-bottom:8px">${esc(cfg.note || 'Share your referral code with friends. When they place their first order, you both get credit!')}</p>
+        <div class="ref-code-box">
+          <div style="font-size:.85rem;color:var(--muted)">Your code:</div>
+          <div class="rc-code">${esc(r.code || '—')}</div>
+          <button class="btn btn-ghost btn-sm" onclick="copyRefCode('${esc(r.code || '')}')">📋 Copy</button>
+        </div>
+        <div style="color:var(--muted);font-size:.84rem;margin-top:8px">Share this link: <span style="color:var(--accent)">${location.origin}/?ref=${esc(r.code || '')}</span></div>
+      </div>
+      <div class="ref-stats">
+        <div class="ref-stat"><div class="rs-num">${stats.totalReferrals || 0}</div><div class="rs-lbl">Friends referred</div></div>
+        <div class="ref-stat"><div class="rs-num">${stats.completedReferrals || 0}</div><div class="rs-lbl">Orders completed</div></div>
+        <div class="ref-stat"><div class="rs-num">${fmt(credit)}</div><div class="rs-lbl">Your credit balance</div></div>
+      </div>
+      <div class="panel mt-3" style="margin-top:20px">
+        <h3 style="margin-bottom:12px">How it works</h3>
+        <div style="color:var(--muted);font-size:.88rem;line-height:1.7">
+          <p>1️⃣ Share your referral code or link with friends 📤</p>
+          <p>2️⃣ They enter your code at checkout and save ${fmt(cfg.bonusUsd || 2)} on their first order 🎉</p>
+          <p>3️⃣ When their order is completed, you earn ${fmt(cfg.creditUsd || 2)} credit 💰</p>
+          <p>4️⃣ Use your credit on any future order — it's automatically applied at checkout ✨</p>
+        </div>
+      </div>
+      <div style="margin-top:20px;text-align:center">
+        <a href="/reviews" class="btn btn-ghost btn-sm">⭐ Leave a Review for Your Orders</a>
+      </div>`;
+  } catch (e) {
+    document.getElementById('refContent').innerHTML = '<div class="empty">Could not load referral info.</div>';
+  }
+}
+
+window.copyRefCode = function(code) {
+  if (!code) return;
+  const link = location.origin + '/?ref=' + code;
+  navigator.clipboard.writeText(link).then(() => toast('Referral link copied! 📋')).catch(() => toast('Copy failed'));
+};
 
 async function renderNew() {
   main.innerHTML = `

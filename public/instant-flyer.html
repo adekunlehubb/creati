@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instant Flyer Generator — CreatiHub</title>
+<meta name="description" content="Need a flyer right now? Upload your text and photo, get a downloadable promotional flyer in minutes — just $5.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>">
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://js.paystack.co/v2/inline.js"></script>
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+
+<section class="hero" style="padding:56px 0 30px">
+  <div class="container" style="max-width:900px;text-align:center">
+    <div style="font-size:3rem;margin-bottom:12px">📄⚡</div>
+    <h1 style="font-size:2.5rem;line-height:1.15;margin-bottom:14px">Instant <span class="grad-text">Flyer Generator</span></h1>
+    <p class="lead" style="max-width:600px;margin:0 auto 20px">Need a promotional flyer right now? Enter your headline, details, and a photo link — get a downloadable, print-ready flyer in minutes. Just <b id="flyerPrice">$5</b>.</p>
+    <div class="hero-badges" style="justify-content:center">
+      <div class="hero-badge">⚡ <b>Instant</b> download</div>
+      <div class="hero-badge">🖨️ <b>Print-ready</b> 800×1000px</div>
+      <div class="hero-badge">💳 <b>Pay once</b>, download forever</div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:10px">
+  <div class="container" style="max-width:880px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:start" id="flyerLayout">
+      <div class="panel">
+        <h3 style="margin-bottom:18px">📝 Your Flyer Details</h3>
+        <div class="field">
+          <label>Headline / Main title</label>
+          <input id="flHeadline" placeholder="e.g. GRAND OPENING SALE" style="font-size:1rem" maxlength="60">
+        </div>
+        <div class="field">
+          <label>Sub-headline</label>
+          <input id="flSub" placeholder="e.g. Up to 50% OFF everything" maxlength="80">
+        </div>
+        <div class="field">
+          <label>Details / body text</label>
+          <textarea id="flBody" placeholder="Sale dates, location, offers..." style="min-height:80px" maxlength="200"></textarea>
+        </div>
+        <div class="field">
+          <label>Contact / call-to-action</label>
+          <input id="flContact" placeholder="e.g. Call 0801 234 5678 | @yourbrand" maxlength="100">
+        </div>
+        <div class="field">
+          <label>Photo URL <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+          <input id="flPhoto" placeholder="https://images.unsplash.com/...">
+        </div>
+        <div class="field">
+          <label>Color theme</label>
+          <select id="flTheme">
+            <option value="purple">Purple → Cyan</option>
+            <option value="green">Green → Cyan</option>
+            <option value="sunset">Orange → Red</option>
+            <option value="ocean">Blue → Teal</option>
+            <option value="royal">Indigo → Purple</option>
+          </select>
+        </div>
+        <div id="flyerMsg"></div>
+        <button class="btn btn-primary" id="flyerBtn" style="width:100%;font-size:1.05rem;padding:14px">⚡ Generate & Pay <span id="flyerBtnPrice">$5</span></button>
+        <p style="color:var(--muted);font-size:.82rem;margin-top:12px;line-height:1.5">Preview updates live on the right. After payment, you'll get a download link for your flyer HTML file (opens in any browser, print to PDF).</p>
+      </div>
+
+      <div>
+        <h3 style="margin-bottom:14px;font-size:1.1rem;text-align:center">👀 Live Preview</h3>
+        <div class="flyer-preview">
+          <iframe class="flyer-frame" id="flyerFrame" title="Flyer preview"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="background:var(--bg2);padding:40px 0">
+  <div class="container" style="max-width:720px;text-align:center">
+    <h2 class="section-title" style="font-size:1.5rem">Need something more custom? 🎨</h2>
+    <p class="section-sub" style="margin-bottom:24px">Our instant flyer is great for quick promos. For a fully bespoke design with your brand colors, custom graphics, and unlimited revisions, order our professional flyer design service.</p>
+    <a href="/order?service=flyer-design" class="btn btn-accent" style="font-size:1rem;padding:13px 30px">Order Custom Flyer Design →</a>
+  </div>
+</section>
+
+<script src="/js/app.js"></script>
+<script>
+renderNav('home');
+renderFooter();
+initChatWidget();
+
+let flyerPrice = 5;
+let paystackCfg = { publicKey: '', demo: true };
+
+(async () => {
+  try {
+    const cfg = await API.get('/config');
+    if (cfg.instantFlyer) {
+      flyerPrice = cfg.instantFlyer.priceUsd || 5;
+      document.getElementById('flyerPrice').textContent = fmt(flyerPrice);
+      document.getElementById('flyerBtnPrice').textContent = fmt(flyerPrice);
+    }
+    paystackCfg = cfg.paystack || paystackCfg;
+  } catch {}
+})();
+
+const themes = {
+  purple: ['#6c5ce7','#00d4ff'],
+  green: ['#00ffa3','#00d4ff'],
+  sunset: ['#ff6b35','#ee2a7b'],
+  ocean: ['#0066ff','#00d4aa'],
+  royal: ['#4b0082','#6c5ce7']
+};
+
+function updatePreview() {
+  const h = document.getElementById('flHeadline').value || 'YOUR HEADLINE';
+  const s = document.getElementById('flSub').value || 'Your sub-headline goes here';
+  const b = document.getElementById('flBody').value || 'Add your details, offers, dates, and location here.';
+  const c = document.getElementById('flContact').value || 'Call 0800 000 0000 | @yourbrand';
+  const photo = document.getElementById('flPhoto').value;
+  const theme = themes[document.getElementById('flTheme').value] || themes.purple;
+  const photoHtml = photo ? `<img src="${esc(photo)}" style="width:100%;height:230px;object-fit:cover;border-radius:14px;margin-bottom:18px" onerror="this.style.display='none'">` : '';
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:800px;height:1000px;background:linear-gradient(160deg,${theme[0]},${theme[1]});font-family:'Segoe UI',Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:50px;color:#fff}
+.wrap{text-align:center;max-width:680px}
+h1{font-size:3.8rem;line-height:1.1;margin-bottom:16px;text-shadow:0 4px 20px rgba(0,0,0,.3)}
+.sub{font-size:1.5rem;margin-bottom:24px;opacity:.95}
+.body{font-size:1.15rem;line-height:1.6;margin-bottom:28px;opacity:.9}
+.contact{font-size:1.1rem;padding:14px 28px;background:rgba(255,255,255,.18);border-radius:50px;display:inline-block}
+</style></head><body><div class="wrap">${photoHtml}<h1>${esc(h)}</h1><div class="sub">${esc(s)}</div><div class="body">${esc(b).replace(/\n/g,'<br>')}</div><div class="contact">${esc(c)}</div></div></body></html>`;
+  document.getElementById('flyerFrame').srcdoc = html;
+}
+
+['flHeadline','flSub','flBody','flContact','flPhoto','flTheme'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updatePreview);
+  document.getElementById(id).addEventListener('change', updatePreview);
+});
+updatePreview();
+
+document.getElementById('flyerBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('flyerMsg');
+  const headline = document.getElementById('flHeadline').value.trim();
+  if (!headline) { msg.innerHTML = '<div class="form-error">Please enter a headline for your flyer.</div>'; return; }
+  const user = API.user();
+  if (!user) { msg.innerHTML = '<div class="form-error">Please log in to generate your flyer. Redirecting…</div>'; setTimeout(() => location.href = '/auth?redirect=/instant-flyer', 1200); return; }
+  msg.innerHTML = '';
+  const btn = document.getElementById('flyerBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Processing...';
+  try {
+    const res = await API.post('/instant-flyer', {
+      headline, subHeadline: document.getElementById('flSub').value,
+      body: document.getElementById('flBody').value, contact: document.getElementById('flContact').value,
+      photoUrl: document.getElementById('flPhoto').value, theme: document.getElementById('flTheme').value
+    });
+    const pay = res.payment;
+    if (pay.demo) {
+      msg.innerHTML = '<div class="form-ok">🧪 TEST MODE: simulating payment...</div>';
+      location.href = '/payment/callback?reference=' + encodeURIComponent(pay.reference) + '&instantFlyer=1';
+      return;
+    }
+    if (window.PaystackPop && pay.publicKey) {
+      const popup = new PaystackPop();
+      popup.newTransaction({
+        key: pay.publicKey, email: user.email, amount: pay.amount, currency: pay.currency,
+        reference: pay.reference,
+        onSuccess: async (txn) => {
+          msg.innerHTML = '<div class="form-ok">✅ Payment received! Preparing your download...</div>';
+          setTimeout(() => location.href = '/instant-flyer/' + encodeURIComponent(res.reference) + '/download', 800);
+        },
+        onCancel: () => { msg.innerHTML = '<div class="form-error">Payment cancelled. No charge made.</div>'; btn.disabled = false; btn.innerHTML = '⚡ Generate & Pay <span id="flyerBtnPrice">' + fmt(flyerPrice) + '</span>'; }
+      });
+    } else if (pay.authorizationUrl) {
+      location.href = pay.authorizationUrl;
+    } else {
+      throw new Error('Payment unavailable. Please try again.');
+    }
+  } catch (e) {
+    msg.innerHTML = '<div class="form-error">' + esc(e.message) + '</div>';
+    btn.disabled = false; btn.innerHTML = '⚡ Generate & Pay <span id="flyerBtnPrice">' + fmt(flyerPrice) + '</span>';
+  }
+});
+</script>
+</body>
+</html>

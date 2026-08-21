@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Naija Templates — CreatiHub 🇳🇬</title>
+<meta name="description" content="Ready-made design templates for Nigerian occasions: aso-ebi, weddings, burials, church programs, Sallah, Christmas, elections, grand openings and more.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🇳🇬</text></svg>">
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+
+<section class="hero" style="padding:56px 0 30px">
+  <div class="container" style="max-width:920px;text-align:center">
+    <div style="font-size:3rem;margin-bottom:10px">🇳🇬</div>
+    <h1 style="font-size:2.6rem;line-height:1.15;margin-bottom:14px">Naija-Ready <span class="grad-text">Templates</span></h1>
+    <p class="lead" style="max-width:620px;margin:0 auto 24px">Beautiful, culturally-tailored design templates for every Nigerian occasion — aso-ebi, weddings, burials, church programs, Sallah, Christmas, elections, grand openings, naming ceremonies and more. Pick a template, tell us your details, and we'll customize it for you.</p>
+    <div class="hero-badges" style="justify-content:center">
+      <div class="hero-badge">🎨 <b>Pro designs</b></div>
+      <div class="hero-badge">⚡ <b>Fast customization</b></div>
+      <div class="hero-badge">💰 <b>Affordable</b> pricing</div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:10px">
+  <div class="container">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:32px" id="tplFilters"></div>
+    <div class="tpl-grid" id="tplGrid"><div class="empty">Loading templates…</div></div>
+  </div>
+</section>
+
+<section class="section" style="background:var(--bg2);padding:44px 0">
+  <div class="container" style="max-width:720px;text-align:center">
+    <h2 class="section-title" style="font-size:1.5rem">Don't see your occasion? 🤔</h2>
+    <p class="section-sub" style="margin-bottom:24px">We're adding new templates every month. Need something specific? Our team can create a custom design for any Nigerian event or celebration.</p>
+    <a href="/order?service=flyer-design" class="btn btn-accent" style="font-size:1rem;padding:13px 30px">Request Custom Design →</a>
+  </div>
+</section>
+
+<script src="/js/app.js"></script>
+<script>
+renderNav('home');
+renderFooter();
+initChatWidget();
+
+let allTemplates = [];
+let activeCat = 'All';
+
+const catIcons = {
+  'Weddings & Engagements': '💍', 'Memorials & Burials': '🕊️', 'Church & Religion': '⛪',
+  'Politics & Elections': '🗳️', 'Eid & Sallah': '🕌', 'Christmas & Easter': '🎄',
+  'Birthdays & Celebrations': '🎂', 'Business & Grand Openings': '🏪', 'Sales & Promotions': '🛍️',
+  'Naming & Christening': '👶'
+};
+
+function renderGrid() {
+  const grid = document.getElementById('tplGrid');
+  const list = activeCat === 'All' ? allTemplates : allTemplates.filter(t => t.category === activeCat);
+  if (!list.length) { grid.innerHTML = '<div class="empty">No templates in this category yet.</div>'; return; }
+  grid.innerHTML = list.map(t => {
+    const ico = catIcons[t.category] || '🎨';
+    return `
+    <div class="tpl-card">
+      <div class="tpl-img" style="background:linear-gradient(160deg,var(--primary),var(--accent))">
+        <span class="tpl-cat">${esc(t.category)}</span>
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:3.5rem">${ico}</div>
+      </div>
+      <div class="tpl-body">
+        <h3>${esc(t.title)}</h3>
+        <p>${esc(t.description)}</p>
+        <div class="tpl-price">from ${fmt(t.priceFrom)}</div>
+        <button class="btn btn-primary btn-sm" style="width:100%" onclick="orderTemplate('${esc(t.id)}')">Customize This Template →</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.orderTemplate = async function(tplId) {
+  const user = API.user();
+  if (!user) { location.href = '/auth?redirect=/naija-templates'; return; }
+  try {
+    const res = await API.post('/naija-templates/order', { templateId: tplId });
+    toast('Template order started! Redirecting to checkout...');
+    if (res.payment && res.payment.authorizationUrl) {
+      location.href = res.payment.authorizationUrl;
+    } else if (res.payment && res.payment.demo) {
+      location.href = '/payment/callback?reference=' + encodeURIComponent(res.payment.reference) + '&demo=1';
+    } else if (res.orderId) {
+      location.href = '/dashboard';
+    }
+  } catch (e) {
+    alert('Could not start order: ' + (e.message || 'Unknown error'));
+  }
+};
+
+(async () => {
+  try {
+    const res = await API.get('/naija-templates');
+    allTemplates = res.templates || [];
+    const cats = ['All', ...new Set(allTemplates.map(t => t.category))];
+    const f = document.getElementById('tplFilters');
+    f.innerHTML = cats.map(c => `<button class="btn btn-sm ${c === 'All' ? 'btn-primary' : 'btn-ghost'}" data-cat="${esc(c)}">${catIcons[c] ? catIcons[c] + ' ' : ''}${esc(c)}</button>`).join('');
+    f.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      activeCat = b.dataset.cat;
+      f.querySelectorAll('button').forEach(x => x.className = 'btn btn-sm ' + (x.dataset.cat === activeCat ? 'btn-primary' : 'btn-ghost'));
+      renderGrid();
+    }));
+    renderGrid();
+  } catch (e) {
+    document.getElementById('tplGrid').innerHTML = '<div class="empty">Could not load templates. Please refresh.</div>';
+  }
+})();
+</script>
+</body>
+</html>

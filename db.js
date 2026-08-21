@@ -344,7 +344,92 @@ const seedServices = [
       { id: 'standard', name: 'Standard', price: 199, desc: '5 staged photos', features: ['5 rooms staged', 'Choice of 3 styles', '4K resolution', '2 revisions', 'MLS-ready'] },
       { id: 'premium', name: 'Premium', price: 449, desc: 'Full property (12 photos)', features: ['12 photos staged', 'Unlimited styles', 'Declutter + renovation preview', 'Unlimited revisions', 'Priority 24h delivery'] }
     ]
+  },
+  // ============================================================
+  // BRAND-IN-A-BOX — hero bundle product (one-time, all-in-one kit)
+  // A single purchase giving a new small business everything to look
+  // professional. This is CreatiHub's flagship differentiator.
+  // ============================================================
+  {
+    id: 'brand-in-a-box',
+    name: 'Brand-in-a-Box Starter Kit',
+    category: 'Branding Bundle',
+    icon: '🎁',
+    tagline: 'Everything your new business needs to look pro — in one kit',
+    description: 'The all-in-one starter kit for startups, SMEs and side hustles. One purchase delivers a complete professional brand: a custom logo, 3 social media templates, a business card, a WhatsApp promo flyer, and a brand color & font guide. Stop buying design pieces one by one — get the full kit and launch looking legit.',
+    image: 'https://images.unsplash.com/photo-1554224155-6726b1ffcb58?w=800&q=80',
+    deliveryDays: 3,
+    rating: 5.0,
+    orders: 320,
+    isBundle: true,
+    bundleIncludes: [
+      { item: 'Custom Logo', detail: '2 concepts + 1 final, PNG + SVG', icon: '\u26A1' },
+      { item: '3 Social Media Templates', detail: 'Instagram post, story & Facebook cover', icon: '' },
+      { item: 'Business Card Design', detail: 'Front + back, print-ready PDF', icon: '' },
+      { item: 'WhatsApp Promo Flyer', detail: 'Shareable flyer to broadcast your launch', icon: '' },
+      { item: 'Brand Color & Font Guide', detail: 'Hex codes + font pairings + usage rules', icon: '' },
+      { item: 'Source Files', detail: 'Editable PSD/AI files included', icon: '' }
+    ],
+    packages: [
+      { id: 'basic', name: 'Starter Kit', price: 45, desc: 'Full brand kit, 2 logo concepts, 3-day delivery', features: ['Custom logo (2 concepts)', '3 social media templates', 'Business card design', 'WhatsApp promo flyer', 'Brand color & font guide', '3-day delivery', '2 revisions'] },
+      { id: 'standard', name: 'Pro Kit', price: 99, desc: 'Everything in Starter + 3 extra social templates & vector files', features: ['Everything in Starter Kit', '3 logo concepts', '6 social media templates (2 platforms)', 'Vector logo files (SVG/EPS)', 'Email signature design', '48h delivery', '4 revisions'] },
+      { id: 'premium', name: 'Launch Kit', price: 199, desc: 'Complete launch package + website landing page + commercial license', features: ['Everything in Pro Kit', '5 logo concepts', '1-page website/landing page', 'Letterhead + invoice template', 'Full commercial license', '24h priority delivery', 'Unlimited revisions'] }
+    ]
   }
+];
+
+// ============================================================
+// Naija-Ready Template Library — culturally-tailored templates for
+// Nigerian occasions. A strong local-market differentiator that no
+// global platform (Fiverr/Canva) serves well.
+// ============================================================
+const seedNaijaTemplates = [
+  { id: 'tpl-asoebi', category: 'Weddings & Engagements', title: 'Aso-Ebi / Wedding Invitation Flyer', desc: 'Elegant aso-ebi and wedding IV flyer with couple photo, date, venue, and family names.', image: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=800&q=80', occasion: 'Wedding', price: 10, popular: true },
+  { id: 'tpl-burial', category: 'Events & Ceremonies', title: 'Burial / Funeral Program Flyer', desc: 'Dignified burial program and celebration-of-life flyer with photo, biography and order of service.', image: 'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?w=800&q=80', occasion: 'Funeral', price: 12, popular: true },
+  { id: 'tpl-church', category: 'Religious & Church', title: 'Church Anniversary / Crusade Poster', desc: 'Bold church anniversary, crusade or revival poster with theme verse, guest minister and date.', image: 'https://images.unsplash.com/photo-1438032005730-77be6595f98e?w=800&q=80', occasion: 'Church', price: 10, popular: true },
+  { id: 'tpl-wedding-iv', category: 'Weddings & Engagements', title: 'Traditional Wedding IV (Engagement)', desc: 'Colorful traditional Nigerian engagement/wedding IV with kola nut motif and family introduction.', image: 'https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?w=800&q=80', occasion: 'Engagement', price: 11 },
+  { id: 'tpl-election', category: 'Politics & Campaign', title: 'Election Campaign Poster', desc: 'Political campaign poster with candidate photo, party logo, slogan and vote number.', image: 'https://images.unsplash.com/photo-1494172961521-33799ddd43a5?w=800&q=80', occasion: 'Campaign', price: 15, popular: true },
+  { id: 'tpl-sallah', category: 'Religious & Church', title: 'Sallah / Eid Greeting Flyer', desc: 'Festive Eid-el-Kabir / Sallah greeting flyer with Islamic motifs and family greeting.', image: 'https://images.unsplash.com/photo-1591456983933-0c772d4f3a3a?w=800&q=80', occasion: 'Eid', price: 8 },
+  { id: 'tpl-christmas', category: 'Seasonal & Holiday', title: 'Christmas / New Year Promo Flyer', desc: 'Christmas and New Year sales promo flyer for businesses — discounts, festive colors, call-to-action.', image: 'https://images.unsplash.com/photo-1512389142860-9c449e58a543?w=800&q=80', occasion: 'Christmas', price: 9, popular: true },
+  { id: 'tpl-easter', category: 'Seasonal & Holiday', title: 'Easter Celebration Flyer', desc: 'Easter celebration flyer for churches and businesses with resurrection theme and event details.', image: 'https://images.unsplash.com/photo-1517363898874-737b62a7db91?w=800&q=80', occasion: 'Easter', price: 8 },
+  { id: 'tpl-birthday', category: 'Events & Ceremonies', title: 'Birthday / Milestone Party Flyer', desc: 'Vibrant birthday and milestone (30th, 50th, 60th) party flyer with celebrant photo and theme.', image: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=800&q=80', occasion: 'Birthday', price: 9 },
+  { id: 'tpl-grand-opening', category: 'Business & Promotion', title: 'Shop Grand Opening Flyer', desc: 'Grand opening flyer for shops, salons, restaurants — opening date, discounts, location map.', image: 'https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?w=800&q=80', occasion: 'Opening', price: 10 },
+  { id: 'tpl-blackfriday', category: 'Business & Promotion', title: 'Black Friday / Sales Promo Flyer', desc: 'High-impact Black Friday or mega sales flyer with bold discounts and urgency countdown.', image: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&q=80', occasion: 'Sales', price: 12 },
+  { id: 'tpl-naming', category: 'Events & Ceremonies', title: 'Child Naming Ceremony Flyer', desc: 'Joyful child naming ceremony flyer with baby photo, names, date and family details.', image: 'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&q=80', occasion: 'Naming', price: 9 }
+];
+
+// ============================================================
+// Nigerian Voiceover Languages & Accents — a local moat that global
+// voiceover platforms do not serve.
+// ============================================================
+const seedNaijaVoiceovers = [
+  { id: 'nig-english', name: 'Nigerian English', desc: 'Clear, professional Nigerian English accent — ideal for ads, IVR, explainer videos.', premium: false },
+  { id: 'pidgin', name: 'Nigerian Pidgin', desc: 'Authentic Nigerian Pidgin — great for relatable ads, comedy and youth-focused content.', premium: false },
+  { id: 'yoruba', name: 'Yoruba', desc: 'Native Yoruba voiceover for radio ads, church promos, and Yoruba-speaking audiences.', premium: true },
+  { id: 'igbo', name: 'Igbo', desc: 'Native Igbo voiceover for commercials, events and Igbo-speaking communities.', premium: true },
+  { id: 'hausa', name: 'Hausa', desc: 'Native Hausa voiceover for northern Nigerian markets, radio and religious content.', premium: true },
+  { id: 'efik', name: 'Efik / Ibibio', desc: 'Efik/Ibibio voiceover for south-south Nigerian audiences.', premium: true },
+  { id: 'tiv', name: 'Tiv', desc: 'Tiv language voiceover for Benue and north-central audiences.', premium: true }
+];
+
+// ============================================================
+// Seed Reviews — public "Before & After" showcase with testimonials.
+// Drives trust and social proof for new visitors.
+// ============================================================
+const seedReviews = [
+  { id: 'rev-1', orderId: 'CH-1041', userId: 'u_demo', userName: 'Chioma O.', rating: 5, comment: 'My cartoon avatar came out amazing! Used it for my YouTube channel and my subs love it. Will order again.', beforeImage: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=600&q=80', afterImage: 'https://images.unsplash.com/photo-1613376023733-0a73315d9b06?w=600&q=80', service: 'Cartoon & Avatar Maker', approved: true, featured: true, createdAt: new Date(Date.now() - 86400000 * 4).toISOString() },
+  { id: 'rev-2', orderId: 'CH-1042', userId: 'u_demo', userName: 'Tunde A.', rating: 5, comment: 'Grand opening flyer was exactly what my coffee shop needed. Customers said it caught their eye immediately. Rush delivery was worth it!', beforeImage: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=600&q=80', afterImage: 'https://images.unsplash.com/photo-1554118811-1e0d58233f08?w=600&q=80', service: 'Flyer & Poster Design', approved: true, featured: true, createdAt: new Date(Date.now() - 86400000 * 2).toISOString() },
+  { id: 'rev-3', orderId: 'CH-1043', userId: 'u_demo', userName: 'Aisha M.', rating: 5, comment: 'Ordered the Brand-in-a-Box kit for my new skincare business. Logo, business card, WhatsApp flyer — everything matched perfectly. Felt like a real brand from day one!', beforeImage: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=600&q=80', afterImage: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=600&q=80', service: 'Brand-in-a-Box Starter Kit', approved: true, featured: true, createdAt: new Date(Date.now() - 86400000).toISOString() }
+];
+
+// ============================================================
+// Installment plan definitions — let customers split large orders.
+// Almost no creative marketplace offers installments — big moat.
+// ============================================================
+const seedInstallmentPlans = [
+  { id: 'pay-full', name: 'Pay in Full', splits: 1, desc: 'Pay the full amount upfront.', depositPct: 100 },
+  { id: 'pay-2', name: 'Pay in 2', splits: 2, desc: 'Pay 50% now, 50% on delivery.', depositPct: 50 },
+  { id: 'pay-3', name: 'Pay in 3', splits: 3, desc: 'Pay 34% now, 33% mid-project, 33% on delivery.', depositPct: 34 }
 ];
 
 const seedUsers = [
@@ -473,7 +558,26 @@ function defaultSettings() {
         ],
         badge: 'Premium'
       }
-    ]
+    ],
+    // ---- Naija-Ready Template Library (local market differentiator) ----
+    naijaTemplates: seedNaijaTemplates,
+    // ---- Nigerian voiceover languages & accents (local moat) ----
+    naijaVoiceovers: seedNaijaVoiceovers,
+    // ---- Installment plans (let customers split large orders) ----
+    installmentPlans: seedInstallmentPlans,
+    // ---- Referral program settings ----
+    referral: {
+      enabled: true,
+      creditUsd: 2,       // credit given to the referrer
+      bonusUsd: 2,        // credit given to the referred friend (first order)
+      note: 'Refer a friend — you both get $2 credit toward your next order.'
+    },
+    // ---- Instant self-serve flyer generator config ----
+    instantFlyer: {
+      enabled: true,
+      priceUsd: 5,
+      note: 'Upload your text + photo, get an instant AI-designed flyer to download — no waiting, no brief.'
+    }
   };
 }
 
@@ -546,6 +650,20 @@ function backfill(obj) {
   // Merge any new seed services that are missing (preserve existing/edited ones)
   const existing = new Set(d.services.map(s => s.id));
   seedServices.forEach(s => { if (!existing.has(s.id)) d.services.push(s); });
+  // ---- New differentiation collections (Phase 8) ----
+  if (!d.reviews) d.reviews = seedReviews.slice();               // before/after showcase + testimonials
+  if (!d.referrals) d.referrals = [];                            // {id, referrerId, code, referredUserId, credit, status, at}
+  if (!d.leadMagnetLogs) d.leadMagnetLogs = [];                  // free business-name tool usage analytics
+  if (!d.instantFlyerOrders) d.instantFlyerOrders = [];          // self-serve instant flyer generator orders
+  if (!Array.isArray(d.settings.installmentPlans) || d.settings.installmentPlans.length === 0) d.settings.installmentPlans = seedInstallmentPlans;
+  if (!d.settings.naijaTemplates) d.settings.naijaTemplates = seedNaijaTemplates;
+  if (!d.settings.naijaVoiceovers) d.settings.naijaVoiceovers = seedNaijaVoiceovers;
+  if (!d.settings.referral) d.settings.referral = { enabled: true, creditUsd: 2, bonusUsd: 2, note: 'Refer a friend — you both get credit toward your next order.' };
+  // Backfill referral credit fields on existing users
+  d.users.forEach(u => {
+    if (typeof u.referralCredit !== 'number') u.referralCredit = 0;
+    if (!u.referralCode) u.referralCode = ('CH' + (u.id || '').slice(-4).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase());
+  });
   // Backfill Paystack payment fields on legacy orders (they were paid under the old demo checkout)
   d.orders.forEach(o => {
     if (!o.paymentStatus) o.paymentStatus = 'paid';
@@ -573,6 +691,10 @@ function makeFreshDb() {
     aiAudit: [],       // {id, userId, message, reason, at}      -- AI safety audit trail
     aiSettings: defaultAiSettings(),
     priceHistory: [],  // {id, serviceId, serviceName, packageId, packageName, oldPrice, newPrice, by, at}
+    reviews: seedReviews.slice(),        // before/after showcase + testimonials {id, orderId, userId, userName, rating, comment, beforeImage, afterImage, service, approved, featured, createdAt}
+    referrals: [],                        // {id, referrerId, code, referredUserId, credit, status, at}
+    leadMagnetLogs: [],                   // free business-name tool usage {id, idea, names, ip, at}
+    instantFlyerOrders: [],               // self-serve instant flyer {id, userId, text, photoUrl, resultUrl, price, paid, at}
     settings: defaultSettings()
   };
 }

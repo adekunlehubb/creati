@@ -23,6 +23,8 @@
       <a href="#notifications" data-view="notifications">🔔 Notifications <span class="bell-badge" id="navBadge" style="position:static;margin-left:4px;display:none"></span></a>
       <a href="#pricing" data-view="pricing">💲 Pricing & Services</a>
       <a href="#customers" data-view="customers">👥 Customers</a>
+      <a href="#reviews" data-view="reviews">⭐ Reviews</a>
+      <a href="#referrals" data-view="referrals">🎁 Referrals</a>
       <a href="#subs" data-view="subs">🔁 Subscriptions</a>
       <a href="#security" data-view="security">🔒 Security & Access</a>
       <a href="#data" data-view="data">💾 Data & Backups</a>
@@ -65,6 +67,8 @@ function renderView() {
   if (view === 'notifications') return renderNotifications();
   if (view === 'pricing') return renderPricing();
   if (view === 'customers') return renderCustomers();
+  if (view === 'reviews') return renderReviewsAdmin();
+  if (view === 'referrals') return renderReferralsAdmin();
   if (view === 'subs') return renderSubsAdmin();
   if (view === 'security') return renderSecurity();
   if (view === 'data') return renderData();
@@ -739,6 +743,110 @@ function renderChips(elId, items, onRemove) {
 }
 
 /* ============================================================ NOVA AI INSIGHTS ============================================================ */
+/* ============================================================ REVIEWS ADMIN ============================================================ */
+async function renderReviewsAdmin() {
+  main.innerHTML = `
+    <div class="page-head"><h2>⭐ Reviews Management</h2></div>
+    <p style="color:var(--muted);margin-bottom:20px;font-size:.9rem">Approve, feature, or reject customer reviews. Approved reviews appear on the public reviews page and homepage.</p>
+    <div id="revAdminList"><div class="empty">Loading reviews…</div></div>`;
+  try {
+    const res = await API.get('/admin/reviews');
+    const reviews = res.reviews || [];
+    const list = document.getElementById('revAdminList');
+    if (!reviews.length) { list.innerHTML = '<div class="empty">No reviews submitted yet.</div>'; return; }
+    list.innerHTML = reviews.map(r => `
+      <div class="admin-rev-item ${r.status === 'pending' ? 'pending' : ''}">
+        <div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <span style="font-weight:700">${esc(r.userName)}</span>
+            <span class="rev-stars" style="color:var(--warn)">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span>
+            <span class="badge badge-${r.status === 'approved' ? 'completed' : r.status === 'pending' ? 'awaiting_payment' : 'cancelled'}">${esc(r.status)}</span>
+            ${r.featured ? '<span class="badge badge-paid">⭐ featured</span>' : ''}
+          </div>
+          <div style="color:var(--muted);font-size:.85rem;margin-top:6px;line-height:1.5">"${esc(r.text)}"</div>
+          <div style="color:var(--muted);font-size:.78rem;margin-top:4px">Order: ${esc(r.orderId)} · ${esc(r.serviceName || '')} · ${timeAgo(r.createdAt)}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${r.status === 'pending' ? `<button class="btn btn-primary btn-sm" data-rev-approve="${r.id}">✓ Approve</button>` : ''}
+          ${r.status === 'approved' ? `<button class="btn btn-ghost btn-sm" data-rev-hide="${r.id}">Hide</button>` : ''}
+          ${r.status === 'approved' && !r.featured ? `<button class="btn btn-accent btn-sm" data-rev-feature="${r.id}">⭐ Feature</button>` : ''}
+          ${r.featured ? `<button class="btn btn-ghost btn-sm" data-rev-unfeature="${r.id}">Unfeature</button>` : ''}
+        </div>
+      </div>`).join('');
+    // Wire buttons
+    list.querySelectorAll('button[data-rev-approve]').forEach(b => b.addEventListener('click', async () => {
+      try { await API.put('/admin/reviews/' + b.dataset.revApprove, { status: 'approved' }); toast('Review approved!'); renderReviewsAdmin(); } catch (e) { toast('Error: ' + e.message); }
+    }));
+    list.querySelectorAll('button[data-rev-hide]').forEach(b => b.addEventListener('click', async () => {
+      try { await API.put('/admin/reviews/' + b.dataset.revHide, { status: 'hidden' }); toast('Review hidden'); renderReviewsAdmin(); } catch (e) { toast('Error: ' + e.message); }
+    }));
+    list.querySelectorAll('button[data-rev-feature]').forEach(b => b.addEventListener('click', async () => {
+      try { await API.put('/admin/reviews/' + b.dataset.revFeature, { featured: true }); toast('Review featured! ⭐'); renderReviewsAdmin(); } catch (e) { toast('Error: ' + e.message); }
+    }));
+    list.querySelectorAll('button[data-rev-unfeature]').forEach(b => b.addEventListener('click', async () => {
+      try { await API.put('/admin/reviews/' + b.dataset.revUnfeature, { featured: false }); toast('Unfeatured'); renderReviewsAdmin(); } catch (e) { toast('Error: ' + e.message); }
+    }));
+  } catch (e) {
+    document.getElementById('revAdminList').innerHTML = '<div class="empty">Failed to load reviews.</div>';
+  }
+}
+
+/* ============================================================ REFERRALS ADMIN ============================================================ */
+async function renderReferralsAdmin() {
+  main.innerHTML = `
+    <div class="page-head"><h2>🎁 Referral Program Overview</h2></div>
+    <div id="refAdminContent"><div class="empty">Loading referral data…</div></div>`;
+  try {
+    const res = await API.get('/admin/referrals');
+    const data = res.referrals || {};
+    const stats = data.stats || { totalReferrals: 0, completedReferrals: 0, totalCreditAwarded: 0 };
+    const config = data.config || { enabled: false, creditUsd: 2, bonusUsd: 2 };
+    const topReferrers = data.topReferrers || [];
+    const recentReferrals = data.recentReferrals || [];
+    document.getElementById('refAdminContent').innerHTML = `
+      <div class="ref-stats" style="margin-bottom:24px">
+        <div class="ref-stat"><div class="rs-num">${stats.totalReferrals || 0}</div><div class="rs-lbl">Total referrals</div></div>
+        <div class="ref-stat"><div class="rs-num">${stats.completedReferrals || 0}</div><div class="rs-lbl">Completed orders</div></div>
+        <div class="ref-stat"><div class="rs-num">${fmt(stats.totalCreditAwarded || 0)}</div><div class="rs-lbl">Credit awarded</div></div>
+      </div>
+      <div class="panel" style="margin-bottom:20px">
+        <h3 style="margin-bottom:12px">⚙️ Program Settings</h3>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:.9rem;color:var(--muted)">
+          <div>Status: <b style="color:${config.enabled ? 'var(--accent2)' : 'var(--warn)'}">${config.enabled ? 'Active' : 'Inactive'}</b></div>
+          <div>Referrer earns: <b style="color:var(--accent2)">${fmt(config.creditUsd || 2)}</b></div>
+          <div>Referred saves: <b style="color:var(--accent2)">${fmt(config.bonusUsd || 2)}</b></div>
+        </div>
+      </div>
+      ${topReferrers.length ? `
+      <div class="panel" style="margin-bottom:20px">
+        <h3 style="margin-bottom:14px">🏆 Top Referrers</h3>
+        ${topReferrers.map((t, i) => `
+          <div class="hbar-row">
+            <span class="nm">${i+1}. ${esc(t.userName || t.code)} (${esc(t.code)})</span>
+            <div class="hbar-track"><div class="hbar-fill" style="width:${Math.min(100, (t.count/((topReferrers[0]||{}).count||1))*100)}%">${t.count} refs</div></div>
+          </div>`).join('')}
+      </div>` : ''}
+      ${recentReferrals.length ? `
+      <div class="panel">
+        <h3 style="margin-bottom:14px">📋 Recent Referral Activity</h3>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>Code</th><th>Referrer</th><th>Referred</th><th>Status</th><th>Date</th></tr></thead>
+          <tbody>
+            ${recentReferrals.map(r => `<tr>
+              <td><b style="color:var(--accent)">${esc(r.code || '—')}</b></td>
+              <td>${esc(r.referrerName || '—')}</td>
+              <td>${esc(r.referredName || '—')}</td>
+              <td><span class="badge badge-${r.status === 'completed' ? 'completed' : 'awaiting_payment'}">${esc(r.status)}</span></td>
+              <td style="color:var(--muted)">${r.createdAt ? timeAgo(r.createdAt) : '—'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+      </div>` : '<div class="empty">No referral activity yet.</div>'}`;
+  } catch (e) {
+    document.getElementById('refAdminContent').innerHTML = '<div class="empty">Failed to load referral data.</div>';
+  }
+}
+
 function renderAI() {
   main.innerHTML = `
     <div class="page-head"><h2>🤖 Nova AI — Business Analyst</h2></div>

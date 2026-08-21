@@ -35,6 +35,26 @@
   </div>
 </section>
 
+<!-- Feature strip: what makes us different -->
+<section class="section" style="padding-top:30px;padding-bottom:0">
+  <div class="container">
+    <div class="feat-strip">
+      <a href="/order?service=brand-in-a-box" class="feat-chip" style="text-decoration:none;color:inherit">
+        <div class="fci">🎁</div><div class="fct">Brand-in-a-Box</div><div class="fcd">Everything to launch your brand</div>
+      </a>
+      <a href="/business-name-tool" class="feat-chip" style="text-decoration:none;color:inherit">
+        <div class="fci">💡</div><div class="fct">Free Name Generator</div><div class="fcd">Business names + slogans instantly</div>
+      </a>
+      <a href="/naija-templates" class="feat-chip" style="text-decoration:none;color:inherit">
+        <div class="fci">🇳🇬</div><div class="fct">Naija Templates</div><div class="fcd">Designs for every occasion</div>
+      </a>
+      <a href="/instant-flyer" class="feat-chip" style="text-decoration:none;color:inherit">
+        <div class="fci">📄⚡</div><div class="fct">Instant Flyer</div><div class="fcd">Download a flyer in 5 minutes</div>
+      </a>
+    </div>
+  </div>
+</section>
+
 <!-- Stats -->
 <section class="section" style="padding-top:0">
   <div class="container">
@@ -54,6 +74,63 @@
     <p class="section-sub">From a single flyer to a full brand launch — pick a service, choose a package, and get professional results delivered fast.</p>
     <div class="grid grid-3" id="svcGrid"><div class="empty">Loading services…</div></div>
     <div style="text-align:center;margin-top:36px"><a href="/services" class="btn btn-accent">View All Services →</a></div>
+  </div>
+</section>
+
+<!-- Brand-in-a-Box showcase -->
+<section class="section" style="background:var(--bg2)">
+  <div class="container">
+    <div class="bundle-hero">
+      <div class="bh-left">
+        <div style="font-size:.8rem;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🎁 Best Value Bundle</div>
+        <h2>Brand-in-a-Box Starter Kit</h2>
+        <p>Everything you need to launch your brand in one package — logo, business card, social media templates, promo flyer, brand colors & fonts, and all source files. Perfect for new businesses and startups.</p>
+        <div class="bundle-includes" style="margin-bottom:20px">
+          <span class="bi-item">Custom Logo</span>
+          <span class="bi-item">3 Social Media Templates</span>
+          <span class="bi-item">Business Card</span>
+          <span class="bi-item">WhatsApp Promo Flyer</span>
+          <span class="bi-item">Brand Color & Font Guide</span>
+          <span class="bi-item">Source Files</span>
+        </div>
+        <a href="/order?service=brand-in-a-box" class="btn btn-primary" style="font-size:1.05rem;padding:14px 30px">Get Your Brand Kit →</a>
+        <span style="margin-left:14px;color:var(--muted);font-size:.88rem">3 packages from $45</span>
+      </div>
+      <div class="bh-right">
+        <div class="bh-price">$45<small> to start</small></div>
+        <div style="color:var(--muted);font-size:.88rem;margin-top:8px">Save 40% vs ordering separately</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Naija Templates showcase -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">🇳🇬 <span class="grad-text">Naija-Ready</span> Templates</h2>
+    <p class="section-sub">Culturally-tailored designs for every Nigerian occasion — aso-ebi, weddings, burials, church, Sallah, Christmas, elections, grand openings & more.</p>
+    <div class="tpl-grid" id="naijaPreview"><div class="empty">Loading templates…</div></div>
+    <div style="text-align:center;margin-top:30px"><a href="/naija-templates" class="btn btn-accent">Browse All Templates →</a></div>
+  </div>
+</section>
+
+<!-- Reviews carousel -->
+<section class="section" style="background:var(--bg2)">
+  <div class="container">
+    <h2 class="section-title">⭐ Real <span class="grad-text">Before & After</span> Transformations</h2>
+    <p class="section-sub">Verified reviews from real customers. See the difference CreatiHub makes.</p>
+    <div class="rev-carousel" id="revCarousel"><div class="empty">Loading reviews…</div></div>
+    <div style="text-align:center;margin-top:24px"><a href="/reviews" class="btn btn-ghost">Read All Reviews →</a></div>
+  </div>
+</section>
+
+<!-- Free business name tool CTA -->
+<section class="section">
+  <div class="container" style="max-width:760px;text-align:center">
+    <div style="font-size:2.5rem;margin-bottom:12px">💡</div>
+    <h2 class="section-title">Starting a Business? <span class="grad-text">Get Your Name Free</span></h2>
+    <p class="section-sub">Our free AI business name & slogan generator gives you instant ideas. Like one? Order your logo and brand kit in one click.</p>
+    <a href="/business-name-tool" class="btn btn-primary" style="font-size:1.05rem;padding:14px 32px">✨ Try It Free →</a>
   </div>
 </section>
 
@@ -157,6 +234,61 @@ document.querySelectorAll('.faq-q').forEach(btn => {
       </div>`).join('');
   } catch (e) {
     document.getElementById('svcGrid').innerHTML = '<div class="empty">Could not load services. Please refresh.</div>';
+  }
+})();
+
+// Load Naija templates preview (top 3)
+(async () => {
+  try {
+    const res = await API.get('/naija-templates');
+    const tpls = (res.templates || []).slice(0, 3);
+    const grid = document.getElementById('naijaPreview');
+    if (!tpls.length) { grid.innerHTML = '<div class="empty">Templates coming soon!</div>'; return; }
+    grid.innerHTML = tpls.map(t => `
+      <div class="tpl-card">
+        <div class="tpl-img" style="background:linear-gradient(160deg,var(--primary),var(--accent))">
+          <span class="tpl-cat">${esc(t.category)}</span>
+          <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:3rem">🎨</div>
+        </div>
+        <div class="tpl-body">
+          <h3>${esc(t.title)}</h3>
+          <p>${esc(t.description)}</p>
+          <div class="tpl-price">from ${fmt(t.priceFrom)}</div>
+          <a href="/naija-templates" class="btn btn-primary btn-sm" style="width:100%">View Template →</a>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    document.getElementById('naijaPreview').innerHTML = '<div class="empty">Could not load templates.</div>';
+  }
+})();
+
+// Load reviews carousel
+(async () => {
+  try {
+    const res = await API.get('/reviews');
+    const reviews = (res.reviews || []).slice(0, 6);
+    const carousel = document.getElementById('revCarousel');
+    if (!reviews.length) { carousel.innerHTML = '<div class="empty">No reviews yet — be the first!</div>'; return; }
+    carousel.innerHTML = reviews.map(r => {
+      const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+      const baHtml = (r.beforeImage || r.afterImage) ? `
+        <div class="rev-ba">
+          ${r.beforeImage ? `<div class="ba-img"><img src="${esc(r.beforeImage)}" alt="Before"><span class="ba-label before">BEFORE</span></div>` : ''}
+          ${r.afterImage ? `<div class="ba-img"><img src="${esc(r.afterImage)}" alt="After"><span class="ba-label after">AFTER</span></div>` : ''}
+        </div>` : '';
+      return `
+      <div class="rev-card ${r.featured ? 'featured' : ''}">
+        ${baHtml}
+        <div class="rev-stars">${stars}</div>
+        <div class="rev-text">"${esc(r.text)}"</div>
+        <div class="rev-who">
+          <div class="av">${esc((r.userName || 'A').charAt(0).toUpperCase())}</div>
+          <div><b>${esc(r.userName)}</b><span>${esc(r.serviceName || 'Verified customer')}</span></div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('revCarousel').innerHTML = '<div class="empty">Could not load reviews.</div>';
   }
 })();
 </script>

@@ -26,6 +26,36 @@
   </div>
 </section>
 
+<!-- Nigerian Voiceover Languages -->
+<section class="section" style="padding-top:8px" id="voiceovers">
+  <div class="container">
+    <h2 class="section-title">🇳🇬 Nigerian <span class="grad-text">Voiceover</span> Languages</h2>
+    <p class="section-sub">Professional voiceovers in Nigerian accents and local languages — perfect for ads, IVR, audiobooks, and content for the Nigerian market.</p>
+    <div class="vo-grid" id="voGrid"><div class="empty">Loading languages…</div></div>
+    <div style="text-align:center;margin-top:28px"><a href="/order?service=voiceover" class="btn btn-primary">Order Voiceover →</a></div>
+  </div>
+</section>
+
+<!-- Naija Templates + Installments banners -->
+<section class="section" style="padding-top:8px">
+  <div class="container">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px" id="featureBanners">
+      <div class="panel" style="background:linear-gradient(135deg,rgba(108,92,231,.1),rgba(0,212,255,.06));text-align:center">
+        <div style="font-size:2.5rem;margin-bottom:10px">🇳🇬</div>
+        <h3 style="margin-bottom:8px">Naija-Ready Templates</h3>
+        <p style="color:var(--muted);font-size:.9rem;line-height:1.6;margin-bottom:16px">Designs for aso-ebi, weddings, burials, church, Sallah, Christmas, elections, grand openings & more.</p>
+        <a href="/naija-templates" class="btn btn-accent">Browse Templates →</a>
+      </div>
+      <div class="panel" style="background:linear-gradient(135deg,rgba(0,255,163,.08),rgba(0,212,255,.06));text-align:center">
+        <div style="font-size:2.5rem;margin-bottom:10px">💳</div>
+        <h3 style="margin-bottom:8px">Pay in Installments</h3>
+        <p style="color:var(--muted);font-size:.9rem;line-height:1.6;margin-bottom:16px">Big project? Split your payment into 2 or 3 installments. Pay a deposit now, rest later.</p>
+        <span style="color:var(--accent2);font-weight:700;font-size:.95rem">Available at checkout on any order</span>
+      </div>
+    </div>
+  </div>
+</section>
+
 <script src="/js/app.js"></script>
 <script>
 renderNav('services');
@@ -120,6 +150,25 @@ async function subscribePlan(planId) {
   } catch (e) {
     const g = document.getElementById('planGrid');
     if (g) g.innerHTML = '<div class="empty">Could not load retainer plans.</div>';
+  }
+})();
+
+// ---------------- Nigerian voiceover languages ----------------
+(async () => {
+  try {
+    const res = await API.get('/voiceover/languages');
+    const langs = res.languages || [];
+    const grid = document.getElementById('voGrid');
+    if (!langs.length) { grid.innerHTML = '<div class="empty">No voiceover languages available.</div>'; return; }
+    grid.innerHTML = langs.map(l => `
+      <div class="vo-card">
+        <div class="vo-ico">🎙️</div>
+        <h4>${esc(l.name)}</h4>
+        <p>${esc(l.desc)}</p>
+      </div>`).join('');
+  } catch (e) {
+    const g = document.getElementById('voGrid');
+    if (g) g.innerHTML = '<div class="empty">Could not load voiceover languages.</div>';
   }
 })();
 </script>

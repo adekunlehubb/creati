@@ -132,22 +132,81 @@ function publicUser(u) {
 // ---------------- Payment helpers ----------------
 // Marks an order as paid (idempotent) and fires notifications/activity.
 function markOrderPaid(order, info = {}) {
-  if (order.paymentStatus === 'paid') return order; // idempotent
+  if (order.paymentStatus === 'paid' && !info.installment) return order; // idempotent
+  // ---- Installment tracking ----
+  if (order.installmentSplits > 1 && info.installment) {
+    // A subsequent installment payment
+    order.installments = order.installments || [];
+    order.installments.push({ index: order.installments.length + 1, amountUsd: info.amountUsd, reference: info.reference, status: 'paid', paidAt: info.paidAt || new Date().toISOString() });
+    order.installmentPaidUsd = (order.installmentPaidUsd || 0) + (info.amountUsd || 0);
+    const fullyPaid = order.installmentPaidUsd >= (order.price - (order.referralDiscountUsd || 0) - (order.creditAppliedUsd || 0)) - 0.01;
+    if (fullyPaid) {
+      order.paymentStatus = 'paid';
+      order.paidAt = info.paidAt || new Date().toISOString();
+    }
+    order.timeline.push({ status: fullyPaid ? 'pending' : 'in_progress', at: new Date().toISOString(), note: `Installment ${order.installments.length} paid ($${info.amountUsd})${fullyPaid ? ' — order fully paid' : ' — balance pending'}` });
+    save();
+    logActivity('payment', `Installment received for ${order.id}`, `${order.userName} paid installment ${order.installments.length} ($${info.amountUsd}) for ${order.serviceName}.`);
+    notify('payment', `Installment received — ${order.id}`, `${order.userName} paid installment ${order.installments.length} of ${order.installmentSplits} ($${info.amountUsd}).${fullyPaid ? ' Order is now fully paid.' : ' Balance still pending.'}`);
+    return order;
+  }
   order.paymentStatus = 'paid';
   order.paidAt = info.paidAt || new Date().toISOString();
   order.paymentChannel = info.channel || 'card';
   if (info.amount != null) order.paidAmount = info.amount;
   if (info.currency) order.paidCurrency = info.currency;
+
+  // ---- Track first installment deposit ----
+  if (order.installmentSplits > 1) {
+    const plans = Array.isArray(db.settings.installmentPlans) ? db.settings.installmentPlans : [];
+    const plan = plans.find(p => p.id === order.installmentPlan) || {};
+    const depositPct = typeof plan.depositPct === 'number' ? plan.depositPct : 100;
+    const netTotal = order.price - (order.referralDiscountUsd || 0) - (order.creditAppliedUsd || 0);
+    const depositUsd = Math.round(netTotal * depositPct) / 100;
+    order.installmentPaidUsd = (order.installmentPaidUsd || 0) + depositUsd;
+    order.installments = order.installments || [];
+    if (!order.installments.find(it => it.reference === order.paymentReference)) {
+      order.installments.push({ index: 1, amountUsd: depositUsd, reference: order.paymentReference, status: 'paid', paidAt: order.paidAt });
+    }
+    order.status = 'in_progress'; // work can start on deposit for installment orders
+  } else {
+    order.status = 'pending';
+  }
+
   order.timeline.push({
-    status: 'pending',
+    status: order.status,
     at: new Date().toISOString(),
-    note: `Payment confirmed via Paystack${info.channel ? ' (' + info.channel + ')' : ''}${info.source === 'webhook' ? ' [webhook]' : ''}`
+    note: `Payment confirmed via Paystack${info.channel ? ' (' + info.channel + ')' : ''}${info.source === 'webhook' ? ' [webhook]' : ''}${order.installmentSplits > 1 ? ' — deposit received, balance pending' : ''}`
   });
+
+  // ---- Award referral credit to the referrer (on first paid payment) ----
+  if (order.referralApplied && order.referralApplied.referrerId) {
+    const referrer = db.users.find(u => u.id === order.referralApplied.referrerId);
+    if (referrer) {
+      const refCfg = db.settings.referral || { creditUsd: 2 };
+      const credit = refCfg.creditUsd || 0;
+      referrer.referralCredit = (typeof referrer.referralCredit === 'number' ? referrer.referralCredit : 0) + credit;
+      db.referrals = db.referrals || [];
+      if (!db.referrals.find(r => r.orderId === order.id)) {
+        db.referrals.push({ id: uid('ref'), referrerId: referrer.id, referrerName: referrer.name, code: order.referralApplied.code, referredUserId: order.userId, referredName: order.userName, orderId: order.id, credit, status: 'credited', at: new Date().toISOString() });
+      }
+      logActivity('referral', `Referral credit awarded to ${referrer.name}`, `${referrer.name} earned $${credit} credit — referred ${order.userName} (order ${order.id}).`);
+    }
+  }
+
+  // ---- Deduct applied user credit (referral balance) ----
+  if (order.creditAppliedUsd > 0) {
+    const buyer = db.users.find(u => u.id === order.userId);
+    if (buyer) {
+      buyer.referralCredit = Math.max(0, (typeof buyer.referralCredit === 'number' ? buyer.referralCredit : 0) - order.creditAppliedUsd);
+    }
+  }
+
   save();
   logActivity('payment', `Payment received for ${order.id}`,
-    `${order.userName} paid $${order.price} for ${order.serviceName} (${order.packageName}) via Paystack${info.channel ? ' / ' + info.channel : ''}`);
-  notify('payment', `💳 Payment confirmed — ${order.id}`,
-    `${order.userName} (${order.userEmail}) paid for:\n\n• Service: ${order.serviceName}\n• Package: ${order.packageName}\n• Amount: $${order.price}\n• Reference: ${order.paymentReference}\n• Channel: ${order.paymentChannel}\n\nThe order is now in your queue.`);
+    `${order.userName} paid for ${order.serviceName} (${order.packageName}) — $${order.price}${order.installmentSplits > 1 ? ' (installment: deposit paid)' : ''} via Paystack${info.channel ? ' / ' + info.channel : ''}`);
+  notify('payment', `Payment confirmed — ${order.id}`,
+    `${order.userName} (${order.userEmail}) paid for:\n\n• Service: ${order.serviceName}\n• Package: ${order.packageName}\n• Amount: $${order.price}${order.installmentSplits > 1 ? ' (installment plan)' : ''}\n• Reference: ${order.paymentReference}\n• Channel: ${order.paymentChannel}\n• Delivery: ${order.whatsappDelivery ? 'WhatsApp ' + (order.whatsappNumber || '') : 'Email'}\n\nThe order is now in your queue.`);
   return order;
 }
 
@@ -378,7 +437,41 @@ app.post('/api/orders', auth, async (req, res) => {
   const extras = computeOrderExtras(pkg, req.body);
 
   const displayCurrency = req.user.currency || 'USD';
-  const charge = paystack.toChargeAmount(extras.totalUsd, displayCurrency, CURRENCY_RATES);
+
+  // ---- Installment plan selection (Phase 8) ----
+  // If the buyer chose an installment plan, only charge the deposit now.
+  // The remainder is tracked on the order and charged via /api/installments/:id/pay.
+  const installmentPlans = Array.isArray(db.settings.installmentPlans) ? db.settings.installmentPlans : [];
+  const installPlanId = req.body.installmentPlan || 'pay-full';
+  const installPlan = installmentPlans.find(p => p.id === installPlanId) || installmentPlans[0] || { id: 'pay-full', splits: 1, depositPct: 100 };
+  const isInstallment = installPlan.splits > 1;
+  const depositPct = typeof installPlan.depositPct === 'number' ? installPlan.depositPct : 100;
+  const dueNowUsd = isInstallment
+    ? Math.round(extras.totalUsd * depositPct) / 100
+    : extras.totalUsd;
+
+  // ---- Referral code application (Phase 8) ----
+  // If the buyer supplied a referral code, validate it and award credit.
+  // The referred (new) buyer gets a discount on this order; the referrer gets
+  // credit after the order is paid (handled in payment verification).
+  let referralApplied = null;
+  let referralDiscountUsd = 0;
+  const refCfg = db.settings.referral || { enabled: false };
+  if (refCfg.enabled && req.body.referralCode) {
+    const code = String(req.body.referralCode).trim().toUpperCase();
+    const referrer = db.users.find(u => (u.referralCode || '').toUpperCase() === code && u.id !== req.user.id);
+    if (referrer) {
+      referralDiscountUsd = Math.min(refCfg.bonusUsd || 0, dueNowUsd);
+      referralApplied = { referrerId: referrer.id, referrerName: referrer.name, code, discountUsd: referralDiscountUsd };
+    }
+  }
+
+  // ---- Existing user credit (referral credit balance) ----
+  const userCredit = typeof req.user.referralCredit === 'number' ? req.user.referralCredit : 0;
+  const creditApplied = Math.min(userCredit, dueNowUsd - referralDiscountUsd);
+
+  const chargeableUsd = Math.max(0, Math.round((dueNowUsd - referralDiscountUsd - creditApplied) * 100) / 100);
+  const charge = paystack.toChargeAmount(chargeableUsd, displayCurrency, CURRENCY_RATES);
   const reference = 'CH' + Date.now().toString(36).toUpperCase() + uid('p').slice(2, 8).toUpperCase();
 
   const order = {
@@ -386,13 +479,25 @@ app.post('/api/orders', auth, async (req, res) => {
     userId: req.user.id, userName: req.user.name, userEmail: req.user.email,
     serviceId: svc.id, serviceName: svc.name,
     packageId: pkg.id, packageName: pkg.name,
-    price: extras.totalUsd,                 // total charged (incl. upsells)
+    price: extras.totalUsd,                 // total order value (incl. upsells)
     basePrice: extras.basePrice,            // package base price (for analytics)
     currency: 'USD',
     rushDelivery: extras.rush,
     rushSurcharge: extras.rushSurcharge,
     addons: extras.addons,                  // [{id,name,price}]
     addonsTotal: extras.addonsTotal,
+    // ---- Installments ----
+    installmentPlan: installPlan.id,
+    installmentSplits: installPlan.splits,
+    installmentPaidUsd: 0,                  // accumulates as installments are paid
+    installments: [],                       // [{index, amountUsd, reference, status, paidAt}]
+    // ---- WhatsApp delivery preference ----
+    whatsappDelivery: !!req.body.whatsappDelivery,
+    whatsappNumber: req.body.whatsappNumber || '',
+    // ---- Referral + credit ----
+    referralApplied,
+    referralDiscountUsd,
+    creditAppliedUsd: creditApplied,
     status: 'awaiting_payment',
     requirements: requirements || '',
     paymentMethod: 'paystack',
@@ -401,7 +506,7 @@ app.post('/api/orders', auth, async (req, res) => {
     chargeCurrency: charge.currency,
     chargeAmount: charge.amount,
     createdAt: new Date().toISOString(),
-    timeline: [{ status: 'awaiting_payment', at: new Date().toISOString(), note: 'Order created — awaiting Paystack payment' }]
+    timeline: [{ status: 'awaiting_payment', at: new Date().toISOString(), note: 'Order created — awaiting Paystack payment' + (isInstallment ? ` (${installPlan.name}: ${depositPct}% deposit)` : '') }]
   };
 
   const baseUrl = process.env.PAYSTACK_CALLBACK_URL ||
@@ -418,6 +523,7 @@ app.post('/api/orders', auth, async (req, res) => {
         order_id: order.id,
         service: svc.name,
         package: pkg.name,
+
         customer_name: req.user.name,
         custom_fields: [
           { display_name: 'Order ID', variable_name: 'order_id', value: order.id },
@@ -993,6 +1099,318 @@ app.get('/api/admin/backups/:file', auth, adminOnly, (req, res) => {
   fs.createReadStream(p).pipe(res);
 });
 
+// ============================================================
+// PHASE 8 — Differentiation feature endpoints
+// Brand-in-a-Box bundles, Naija templates, reviews, referrals,
+// lead magnet (business name generator), instant flyer,
+// Nigerian voiceover languages, installment payments.
+// ============================================================
+
+// ---- Brand-in-a-Box bundles (hero product) ----
+app.get('/api/bundles', (req, res) => {
+  const bundles = (db.services || []).filter(s => s && s.isBundle);
+  res.json({ bundles });
+});
+
+// ---- Naija-Ready Template Library ----
+app.get('/api/naija-templates', (req, res) => {
+  const templates = (db.settings.naijaTemplates) || [];
+  const cat = req.query.category;
+  const filtered = cat ? templates.filter(t => t.category === cat) : templates;
+  const categories = [...new Set(templates.map(t => t.category))];
+  res.json({ templates: filtered, categories, total: templates.length });
+});
+
+// Order a Naija template (creates a real order for customization)
+app.post('/api/naija-templates/order', auth, async (req, res) => {
+  const { templateId, requirements } = req.body || {};
+  const tpl = (db.settings.naijaTemplates || []).find(t => t.id === templateId);
+  if (!tpl) return res.status(404).json({ error: 'Template not found' });
+  const displayCurrency = req.user.currency || 'USD';
+  const priceUsd = tpl.price || 10;
+  const charge = paystack.toChargeAmount(priceUsd, displayCurrency, CURRENCY_RATES);
+  const reference = 'CH' + Date.now().toString(36).toUpperCase() + uid('p').slice(2, 8).toUpperCase();
+  const order = {
+    id: 'CH-' + (db.orderCounter++), userId: req.user.id, userName: req.user.name, userEmail: req.user.email,
+    serviceId: 'flyer-design', serviceName: 'Naija Template: ' + tpl.title, packageId: 'template', packageName: tpl.category,
+    price: priceUsd, basePrice: priceUsd, currency: 'USD',
+    installmentSplits: 1, installmentPaidUsd: 0, installments: [],
+    whatsappDelivery: !!req.body.whatsappDelivery, whatsappNumber: req.body.whatsappNumber || '',
+    status: 'awaiting_payment', requirements: requirements || tpl.title,
+    paymentMethod: 'paystack', paymentReference: reference, paymentStatus: 'unpaid',
+    chargeCurrency: charge.currency, chargeAmount: charge.amount,
+    naijaTemplateId: templateId, createdAt: new Date().toISOString(),
+    timeline: [{ status: 'awaiting_payment', at: new Date().toISOString(), note: 'Naija template order created — awaiting payment' }]
+  };
+  const baseUrl = process.env.PAYSTACK_CALLBACK_URL || (req.protocol + '://' + req.get('host') + '/payment/callback');
+  try {
+    const init = await paystack.initializeTransaction({
+      email: req.user.email, amount: charge.amount, currency: charge.currency, reference, callbackUrl: baseUrl,
+      metadata: { order_id: order.id, template: tpl.title, custom_fields: [{ display_name: 'Template', variable_name: 'template', value: tpl.title }] }
+    });
+    order.paymentAccessCode = init.data.access_code;
+    db.orders.push(order); save();
+    logActivity('order', `Naija template order ${order.id}`, `${req.user.name} ordered template "${tpl.title}" — $${priceUsd}`);
+    res.json({ order, payment: { reference, accessCode: init.data.access_code, authorizationUrl: init.data.authorization_url, amount: charge.amount, currency: charge.currency, publicKey: paystack.publicKey(), demo: paystack.isDemo() } });
+  } catch (e) { res.status(502).json({ error: 'Could not initialize payment: ' + e.message }); }
+});
+
+// ---- Nigerian Voiceover Languages ----
+app.get('/api/voiceover/languages', (req, res) => {
+  res.json({ languages: db.settings.naijaVoiceovers || [] });
+});
+
+// ---- Reviews (public before/after showcase + testimonials) ----
+app.get('/api/reviews', (req, res) => {
+  const all = (db.reviews || []).filter(r => r && r.approved);
+  const featured = req.query.featured ? all.filter(r => r.featured) : all;
+  const limit = parseInt(req.query.limit, 10) || 50;
+  res.json({ reviews: featured.slice(0, limit), total: all.length });
+});
+
+// Submit a review (must own a completed order)
+app.post('/api/reviews', auth, (req, res) => {
+  const { orderId, rating, comment, beforeImage, afterImage } = req.body || {};
+  if (!orderId || !rating) return res.status(400).json({ error: 'Order ID and rating are required' });
+  const order = db.orders.find(o => o.id === orderId);
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+  if (order.userId !== req.user.id) return res.status(403).json({ error: 'You can only review your own orders' });
+  if (order.status !== 'completed') return res.status(400).json({ error: 'You can only review completed orders' });
+  if ((db.reviews || []).some(r => r.orderId === orderId)) return res.status(409).json({ error: 'You already reviewed this order' });
+  const review = {
+    id: uid('rev'), orderId, userId: req.user.id, userName: req.user.name,
+    rating: Math.max(1, Math.min(5, parseInt(rating, 10) || 5)),
+    comment: String(comment || '').slice(0, 1000),
+    beforeImage: beforeImage || '', afterImage: afterImage || '',
+    service: order.serviceName, approved: false, featured: false,
+    createdAt: new Date().toISOString()
+  };
+  db.reviews = db.reviews || [];
+  db.reviews.push(review); save();
+  logActivity('review', `New review submitted for ${orderId}`, `${req.user.name} rated ${order.serviceName} ${review.rating}/5 — pending approval.`);
+  notify('review', `New review pending approval — ${orderId}`, `${req.user.name} submitted a ${review.rating}-star review for ${order.serviceName}.`);
+  res.json({ review, message: 'Review submitted! It will appear publicly once approved.' });
+});
+
+// Admin: list all reviews (including unapproved)
+app.get('/api/admin/reviews', auth, adminOnly, (req, res) => {
+  res.json({ reviews: db.reviews || [] });
+});
+
+// Admin: approve / reject / feature a review
+app.put('/api/admin/reviews/:id', auth, adminOnly, (req, res) => {
+  const review = (db.reviews || []).find(r => r.id === req.params.id);
+  if (!review) return res.status(404).json({ error: 'Review not found' });
+  if (typeof req.body.approved === 'boolean') review.approved = req.body.approved;
+  if (typeof req.body.featured === 'boolean') review.featured = req.body.featured;
+  save();
+  logActivity('review', `Review ${req.params.id} updated`, `approved=${review.approved}, featured=${review.featured}`);
+  res.json({ review });
+});
+
+// ---- Referral program ----
+// Get my referral code + stats
+app.get('/api/referrals', auth, (req, res) => {
+  const user = db.users.find(u => u.id === req.user.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (!user.referralCode) {
+    user.referralCode = ('CH' + (user.id || '').slice(-4).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase());
+    save();
+  }
+  const myReferrals = (db.referrals || []).filter(r => r.referrerId === req.user.id);
+  const credit = typeof user.referralCredit === 'number' ? user.referralCredit : 0;
+  res.json({
+    referralCode: user.referralCode,
+    referralCredit: credit,
+    referrals: myReferrals,
+    totalReferred: myReferrals.length,
+    totalEarned: myReferrals.reduce((s, r) => s + (r.credit || 0), 0),
+    config: db.settings.referral || { enabled: false }
+  });
+});
+
+// Validate a referral code (used at checkout to preview discount)
+app.post('/api/referrals/validate', auth, (req, res) => {
+  const refCfg = db.settings.referral || { enabled: false };
+  if (!refCfg.enabled) return res.json({ valid: false, message: 'Referral program is not active.' });
+  const code = String(req.body.referralCode || '').trim().toUpperCase();
+  if (!code) return res.json({ valid: false });
+  const referrer = db.users.find(u => (u.referralCode || '').toUpperCase() === code && u.id !== req.user.id);
+  if (!referrer) return res.json({ valid: false, message: 'Invalid referral code.' });
+  res.json({ valid: true, referrerName: referrer.name.split(' ')[0], discountUsd: refCfg.bonusUsd || 0, creditUsd: refCfg.creditUsd || 0 });
+});
+
+// Admin: overview of all referrals
+app.get('/api/admin/referrals', auth, adminOnly, (req, res) => {
+  res.json({ referrals: db.referrals || [], config: db.settings.referral || { enabled: false } });
+});
+
+// ---- Lead magnet: free Business Name + Slogan generator ----
+app.post('/api/lead-magnet/business-name', (req, res) => {
+  const idea = String((req.body || {}).idea || '').trim();
+  if (!idea || idea.length < 3) return res.status(400).json({ error: 'Please describe your business idea (at least a few words).' });
+  if (idea.length > 200) return res.status(400).json({ error: 'Please keep your description under 200 characters.' });
+
+  // Lightweight local generator (no external API needed) — builds names from
+  // keywords in the idea + curated suffixes/prefixes. Fast, free, reliable.
+  const words = idea.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !['the','and','for','with','that','this','from','your','business','company','service','services','provide','offering','sell','selling','buy','buying','want','need','looking'].includes(w));
+  const core = words.slice(0, 4);
+  const prefixes = ['Nova', 'Lumina', 'Apex', 'Prime', 'Elite', 'Vivid', 'Bold', 'Bright', 'True', 'Pure', 'Sky', 'Urban', 'Pixel', 'Craft', 'Spark'];
+  const suffixes = ['Hub', 'Lab', 'Works', 'Studio', 'Co', 'Nest', 'Forge', 'Verse', 'Loop', 'Bay', 'Edge', 'Point', 'Zone', 'Space', 'Base'];
+  const naijaSuffixes = ['9ja', 'Naija', 'Afri', 'Naij'];
+  const ideas = idea.toLowerCase();
+  const names = new Set();
+  // Pattern 1: Prefix + core word
+  if (core[0]) { prefixes.slice(0, 6).forEach(p => names.add(p + cap(core[0]))); }
+  // Pattern 2: core word + suffix
+  if (core[0]) { suffixes.slice(0, 6).forEach(s => names.add(cap(core[0]) + s)); }
+  // Pattern 3: two core words combined
+  if (core[1]) { names.add(cap(core[0]) + cap(core[1])); names.add(cap(core[0]) + '&' + cap(core[1])); }
+  // Pattern 4: Naija-flavored
+  if (core[0]) { naijaSuffixes.forEach(s => names.add(cap(core[0]) + s)); }
+  // Pattern 5: pure creative combos
+  for (let i = 0; i < 5; i++) { names.add(prefixes[Math.floor(Math.random()*prefixes.length)] + suffixes[Math.floor(Math.random()*suffixes.length)]); }
+  const nameList = [...names].slice(0, 10).map(name => ({
+    name,
+    slogan: makeSlogan(name, idea)
+  }));
+
+  // Log usage for analytics (no PII — just the idea text)
+  db.leadMagnetLogs = db.leadMagnetLogs || [];
+  db.leadMagnetLogs.push({ id: uid('lm'), idea: idea.slice(0, 200), nameCount: nameList.length, at: new Date().toISOString() });
+  if (db.leadMagnetLogs.length > 500) db.leadMagnetLogs = db.leadMagnetLogs.slice(-500); // cap storage
+  save();
+
+  res.json({ idea, names: nameList, note: 'Love a name? Order a custom logo to make it official — your brand starts here.' });
+});
+
+function cap(w) { return w ? w.charAt(0).toUpperCase() + w.slice(1) : ''; }
+function makeSlogan(name, idea) {
+  const templates = [
+    `${name} — where ${idea.toLowerCase().slice(0, 30)} meets excellence.`,
+    `${name}: Crafted for ${idea.toLowerCase().slice(0, 30)}.`,
+    `${name} — your trusted partner in ${idea.toLowerCase().slice(0, 25)}.`,
+    `${name}. Built different. Built for you.`,
+    `${name} — quality you can feel, service you can trust.`,
+    `${name}: Small steps. Big impact.`,
+    `${name} — turning ideas into reality, every day.`
+  ];
+  return templates[Math.floor(Math.random() * templates.length)];
+}
+
+// ---- Instant Flyer generator (self-serve, low-cost) ----
+app.get('/api/instant-flyer/config', (req, res) => {
+  res.json({ config: db.settings.instantFlyer || { enabled: false } });
+});
+
+// Create an instant flyer order (user pays a small flat fee)
+app.post('/api/instant-flyer', auth, async (req, res) => {
+  const cfg = db.settings.instantFlyer || { enabled: false };
+  if (!cfg.enabled) return res.status(400).json({ error: 'Instant flyer generator is not available right now.' });
+  const { headline, subtext, phone, bgColor } = req.body || {};
+  if (!headline) return res.status(400).json({ error: 'A headline is required.' });
+  const priceUsd = cfg.priceUsd || 5;
+  const displayCurrency = req.user.currency || 'USD';
+  const charge = paystack.toChargeAmount(priceUsd, displayCurrency, CURRENCY_RATES);
+  const reference = 'CH' + Date.now().toString(36).toUpperCase() + uid('p').slice(2, 8).toUpperCase();
+  const flyer = {
+    id: uid('if'), userId: req.user.id, userName: req.user.name,
+    headline: String(headline).slice(0, 80), subtext: String(subtext || '').slice(0, 200),
+    phone: String(phone || '').slice(0, 20), bgColor: bgColor || '#6c5ce7',
+    price: priceUsd, paid: false, reference, createdAt: new Date().toISOString()
+  };
+  const baseUrl = process.env.PAYSTACK_CALLBACK_URL || (req.protocol + '://' + req.get('host') + '/payment/callback');
+  try {
+    const init = await paystack.initializeTransaction({
+      email: req.user.email, amount: charge.amount, currency: charge.currency, reference, callbackUrl: baseUrl,
+      metadata: { type: 'instant_flyer', headline: flyer.headline }
+    });
+    flyer.accessCode = init.data.access_code;
+    db.instantFlyerOrders = db.instantFlyerOrders || [];
+    db.instantFlyerOrders.push(flyer); save();
+    logActivity('instant-flyer', `Instant flyer order by ${req.user.name}`, `Headline: "${flyer.headline}" — $${priceUsd}`);
+    res.json({ flyer, payment: { reference, accessCode: init.data.access_code, authorizationUrl: init.data.authorization_url, amount: charge.amount, currency: charge.currency, publicKey: paystack.publicKey(), demo: paystack.isDemo() } });
+  } catch (e) { res.status(502).json({ error: 'Could not initialize payment: ' + e.message }); }
+});
+
+// Verify instant flyer payment and return a downloadable flyer (HTML rendered)
+app.get('/api/instant-flyer/:reference', auth, (req, res) => {
+  const flyer = (db.instantFlyerOrders || []).find(f => f.reference === req.params.reference && f.userId === req.user.id);
+  if (!flyer) return res.status(404).json({ error: 'Flyer not found' });
+  if (!flyer.paid) {
+    // In demo mode auto-mark paid; in live mode verify with Paystack
+    if (paystack.isDemo()) { flyer.paid = true; save(); }
+    else { return res.status(402).json({ error: 'Payment not completed yet. Please complete checkout first.' }); }
+  }
+  res.json({ flyer, downloadUrl: `/api/instant-flyer/${flyer.reference}/download` });
+});
+
+// Download the flyer as a self-contained HTML file (printable / saveable)
+app.get('/api/instant-flyer/:reference/download', auth, (req, res) => {
+  const flyer = (db.instantFlyerOrders || []).find(f => f.reference === req.params.reference && f.userId === req.user.id);
+  if (!flyer || !flyer.paid) return res.status(404).send('Flyer not found or not paid');
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(flyer.headline)}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f0f0;font-family:'Segoe UI',Arial,sans-serif}
+.flyer{width:800px;height:1000px;background:linear-gradient(135deg,${esc(flyer.bgColor)},#2d3436);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px;position:relative;overflow:hidden}
+.flyer::before{content:'';position:absolute;top:-50px;left:-50px;width:300px;height:300px;background:rgba(255,255,255,.08);border-radius:50%}
+.flyer::after{content:'';position:absolute;bottom:-80px;right:-80px;width:400px;height:400px;background:rgba(255,255,255,.06);border-radius:50%}
+.badge{background:rgba(255,255,255,.2);padding:8px 24px;border-radius:30px;font-size:18px;letter-spacing:2px;margin-bottom:40px;text-transform:uppercase}
+h1{font-size:72px;line-height:1.1;margin-bottom:30px;font-weight:800;text-shadow:0 4px 20px rgba(0,0,0,.3)}
+.sub{font-size:28px;opacity:.95;margin-bottom:50px;max-width:600px;line-height:1.4}
+.phone{font-size:32px;font-weight:700;background:rgba(255,255,255,.15);padding:16px 40px;border-radius:12px;letter-spacing:1px}
+.brand{position:absolute;bottom:30px;font-size:20px;opacity:.7;letter-spacing:3px;text-transform:uppercase}</style></head>
+<body><div class="flyer"><div class="badge">✦ CreatiHub ✦</div><h1>${esc(flyer.headline)}</h1><p class="sub">${esc(flyer.subtext)}</p><div class="phone">${esc(flyer.phone)}</div><div class="brand">Made with CreatiHub</div></div></body></html>`;
+  res.setHeader('Content-Type', 'text/html');
+  res.setHeader('Content-Disposition', `attachment; filename="creatihub-flyer-${flyer.reference}.html"`);
+  res.send(html);
+});
+
+function esc(s) { return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+// ---- Installment payments: charge the next installment ----
+app.post('/api/installments/:orderId/pay', auth, async (req, res) => {
+  const order = db.orders.find(o => o.id === req.params.orderId && o.userId === req.user.id);
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+  if (order.installmentSplits <= 1) return res.status(400).json({ error: 'This order is not on an installment plan.' });
+  const netTotal = order.price - (order.referralDiscountUsd || 0) - (order.creditAppliedUsd || 0);
+  const paidSoFar = order.installmentPaidUsd || 0;
+  const remaining = Math.max(0, Math.round((netTotal - paidSoFar) * 100) / 100);
+  if (remaining <= 0.01) return res.status(400).json({ error: 'This order is already fully paid.' });
+  const displayCurrency = req.user.currency || 'USD';
+  const charge = paystack.toChargeAmount(remaining, displayCurrency, CURRENCY_RATES);
+  const reference = 'CH' + Date.now().toString(36).toUpperCase() + uid('p').slice(2, 8).toUpperCase();
+  const baseUrl = process.env.PAYSTACK_CALLBACK_URL || (req.protocol + '://' + req.get('host') + '/payment/callback');
+  try {
+    const init = await paystack.initializeTransaction({
+      email: req.user.email, amount: charge.amount, currency: charge.currency, reference, callbackUrl: baseUrl,
+      metadata: { order_id: order.id, installment: (order.installments || []).length + 1, custom_fields: [{ display_name: 'Installment', variable_name: 'installment', value: `Payment ${((order.installments||[]).length+1)} of ${order.installmentSplits}` }] }
+    });
+    // Stash the pending installment reference so the webhook/verify can apply it
+    order.pendingInstallment = { reference, amountUsd: remaining, index: (order.installments || []).length + 1 };
+    save();
+    res.json({ order, payment: { reference, accessCode: init.data.access_code, authorizationUrl: init.data.authorization_url, amount: charge.amount, currency: charge.currency, publicKey: paystack.publicKey(), demo: paystack.isDemo(), remainingUsd: remaining } });
+  } catch (e) { res.status(502).json({ error: 'Could not initialize payment: ' + e.message }); }
+});
+
+// Verify an installment payment
+app.get('/api/installments/:orderId/verify/:reference', auth, async (req, res) => {
+  const order = db.orders.find(o => o.id === req.params.orderId && o.userId === req.user.id);
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+  try {
+    const v = await paystack.verifyTransaction(req.params.reference);
+    if (v.paid) {
+      const pend = order.pendingInstallment;
+      if (pend && pend.reference === req.params.reference) {
+        markOrderPaid(order, { installment: true, amountUsd: pend.amountUsd, reference: pend.reference, channel: v.channel, paidAt: v.paidAt });
+        order.pendingInstallment = null; save();
+      }
+      return res.json({ order, paid: true });
+    }
+    res.status(402).json({ error: 'Installment payment not completed', status: v.status });
+  } catch (e) { res.status(502).json({ error: 'Could not verify payment: ' + e.message }); }
+});
+
+
 app.get('/api/config', (req, res) => {
   const settings = db.settings || {};
   res.json({
@@ -1005,7 +1423,14 @@ app.get('/api/config', (req, res) => {
     rushDelivery: settings.rushDelivery || { enabled: false },
     addons: Array.isArray(settings.addons) ? settings.addons : [],
     // Recurring monthly retainer plans
-    subscriptionPlans: Array.isArray(settings.subscriptionPlans) ? settings.subscriptionPlans : []
+    subscriptionPlans: Array.isArray(settings.subscriptionPlans) ? settings.subscriptionPlans : [],
+    // ---- New differentiation features (Phase 8) ----
+    installmentPlans: Array.isArray(settings.installmentPlans) ? settings.installmentPlans : [],
+    naijaTemplates: Array.isArray(settings.naijaTemplates) ? settings.naijaTemplates : [],
+    naijaVoiceovers: Array.isArray(settings.naijaVoiceovers) ? settings.naijaVoiceovers : [],
+    referral: settings.referral || { enabled: false },
+    instantFlyer: settings.instantFlyer || { enabled: false },
+    bundles: db.services.filter(s => s.isBundle)
   });
 });
 
@@ -1015,9 +1440,29 @@ app.get('/payment/callback', (req, res) => {
 });
 
 // SPA-ish fallback for known pages
-const pages = ['', 'services', 'order', 'auth', 'dashboard', 'admin'];
+const pages = ['', 'services', 'order', 'auth', 'dashboard', 'admin', 'naija-templates', 'reviews', 'business-name-tool', 'instant-flyer'];
 pages.forEach(p => {
   app.get('/' + p, (req, res) => res.sendFile(path.join(__dirname, 'public', (p || 'index') + '.html')));
+});
+
+// Instant flyer download route (direct browser access, no auth header)
+app.get('/instant-flyer/:reference/download', (req, res) => {
+  const flyer = (db.instantFlyerOrders || []).find(f => f.reference === req.params.reference);
+  if (!flyer || !flyer.paid) return res.status(404).send('Flyer not found or not paid');
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(flyer.headline)}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f0f0;font-family:'Segoe UI',Arial,sans-serif}
+.flyer{width:800px;height:1000px;background:linear-gradient(135deg,${esc(flyer.bgColor || '#6c5ce7')},#2d3436);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px;position:relative;overflow:hidden}
+.flyer::before{content:'';position:absolute;top:-50px;left:-50px;width:300px;height:300px;background:rgba(255,255,255,.08);border-radius:50%}
+.flyer::after{content:'';position:absolute;bottom:-80px;right:-80px;width:400px;height:400px;background:rgba(255,255,255,.06);border-radius:50%}
+.badge{background:rgba(255,255,255,.2);padding:8px 24px;border-radius:30px;font-size:18px;letter-spacing:2px;margin-bottom:40px;text-transform:uppercase}
+h1{font-size:72px;line-height:1.1;margin-bottom:30px;font-weight:800;text-shadow:0 4px 20px rgba(0,0,0,.3)}
+.sub{font-size:28px;opacity:.95;margin-bottom:50px;max-width:600px;line-height:1.4}
+.phone{font-size:32px;font-weight:700;background:rgba(255,255,255,.15);padding:16px 40px;border-radius:12px;letter-spacing:1px}
+.brand{position:absolute;bottom:30px;font-size:20px;opacity:.7;letter-spacing:3px;text-transform:uppercase}</style></head>
+<body><div class="flyer"><div class="badge">✦ CreatiHub ✦</div><h1>${esc(flyer.headline)}</h1><p class="sub">${esc(flyer.subtext)}</p><div class="phone">${esc(flyer.phone)}</div><div class="brand">Made with CreatiHub</div></div></body></html>`;
+  res.setHeader('Content-Type', 'text/html');
+  res.setHeader('Content-Disposition', `attachment; filename="creatihub-flyer-${flyer.reference}.html"`);
+  res.send(html);
 });
 
 // ============================================================

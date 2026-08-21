@@ -16,3 +16,9 @@ data/backups/
 npm-debug.log*
 .idea/
 .vscode/
+
+# Temp build scripts
+_patch_*.py
+_phase8_endpoints.js
+test_phase8.py
+todo.md

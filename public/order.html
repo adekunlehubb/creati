@@ -30,6 +30,12 @@ let paystackCfg = { publicKey: '', demo: true };
 let upsellCfg = { rushDelivery: { enabled: false }, addons: [] };
 let selectedAddons = new Set();
 let rushOn = false;
+let installmentPlans = [];
+let selectedInstallment = 'pay-full';
+let referralCfg = { enabled: false };
+let referralCode = '';
+let referralValid = null;
+let waDeliveryOn = false;
 
 async function load() {
   const root = document.getElementById('orderRoot');
@@ -42,6 +48,8 @@ async function load() {
     service = s;
     paystackCfg = cfg.paystack || paystackCfg;
     upsellCfg = { rushDelivery: cfg.rushDelivery || { enabled: false }, addons: Array.isArray(cfg.addons) ? cfg.addons : [] };
+    installmentPlans = cfg.installmentPlans || [];
+    referralCfg = cfg.referral || { enabled: false };
     selectedPkg = s.packages[1] ? s.packages[1].id : s.packages[0].id;
     render();
   } catch (e) {
@@ -89,7 +97,13 @@ function render() {
 
     ${renderUpsells()}
 
-    <h3 style="font-size:1.25rem;margin-top:18px">3. Pay securely with Paystack</h3>
+    ${renderInstallments()}
+
+    ${renderDeliveryOptions()}
+
+    ${renderReferral()}
+
+    <h3 style="font-size:1.25rem;margin-top:18px">${selectedInstallment !== 'pay-full' ? '3. Pay your deposit' : '3. Pay securely'} with Paystack</h3>
     <div class="panel mt-2">
       <div class="paystack-box">
         <div class="paystack-row">
@@ -125,6 +139,23 @@ function render() {
     if (cb.checked) selectedAddons.add(cb.value); else selectedAddons.delete(cb.value);
     updateTotal();
   }));
+  // Installment selector
+  document.querySelectorAll('.inst-opt').forEach(o => o.addEventListener('click', () => {
+    selectedInstallment = o.dataset.inst;
+    document.querySelectorAll('.inst-opt').forEach(x => x.classList.toggle('selected', x.dataset.inst === selectedInstallment));
+    // Update payment heading
+    const heading = document.querySelector('h3[style*="font-size:1.25rem;margin-top:18px"]');
+    updateTotal();
+  }));
+  // WhatsApp delivery
+  const waCb = document.getElementById('waCb');
+  if (waCb) waCb.addEventListener('change', () => {
+    waDeliveryOn = waCb.checked;
+    document.getElementById('waPhoneWrap').style.display = waDeliveryOn ? 'block' : 'none';
+  });
+  // Referral code
+  const refApplyBtn = document.getElementById('refApplyBtn');
+  if (refApplyBtn) refApplyBtn.addEventListener('click', applyReferral);
   document.getElementById('placeBtn').addEventListener('click', placeOrder);
 }
 
@@ -177,6 +208,59 @@ function renderUpsells() {
     </div>`;
 }
 
+// Render installment plan selector
+function renderInstallments() {
+  if (!installmentPlans || installmentPlans.length <= 1) return '';
+  const plans = installmentPlans.filter(p => p.id !== 'pay-full' || installmentPlans.length > 1);
+  return `
+    <h3 style="font-size:1.25rem;margin-top:18px">💳 Payment Plan <span style="color:var(--muted);font-size:.8rem;font-weight:400">(pay in full or installments)</span></h3>
+    <div class="inst-grid">
+      ${installmentPlans.map(p => `
+        <div class="inst-opt ${p.id === selectedInstallment ? 'selected' : ''}" data-inst="${esc(p.id)}">
+          <div class="io-label">${esc(p.label)}</div>
+          <div class="io-pct">${Math.round(p.depositPct * 100)}%</div>
+          <div class="io-desc">${esc(p.description)}</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+// Render WhatsApp delivery option
+function renderDeliveryOptions() {
+  return `
+    <h3 style="font-size:1.25rem;margin-top:18px">📱 Delivery Preferences</h3>
+    <div class="panel mt-2">
+      <label class="wa-box">
+        <input type="checkbox" id="waCb">
+        <span class="wa-ico">💬</span>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:.95rem">Deliver via WhatsApp</div>
+          <div style="color:var(--muted);font-size:.84rem;margin-top:3px;line-height:1.5">Get your completed files sent directly to your WhatsApp — no need to check email. Enter your WhatsApp number below.</div>
+        </div>
+      </label>
+      <div class="field" id="waPhoneWrap" style="display:none;margin-top:12px">
+        <label>WhatsApp number <span style="color:var(--muted);font-weight:400">(with country code, e.g. +234 801 234 5678)</span></label>
+        <input id="waPhone" placeholder="+234 801 234 5678">
+      </div>
+    </div>`;
+}
+
+// Render referral code field
+function renderReferral() {
+  if (!referralCfg.enabled) return '';
+  return `
+    <h3 style="font-size:1.25rem;margin-top:18px">🎁 Have a Referral Code? <span style="color:var(--muted);font-size:.8rem;font-weight:400">(save ${fmt(referralCfg.creditUsd || 2)})</span></h3>
+    <div class="panel mt-2">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div class="field" style="flex:1;margin-bottom:0">
+          <label>Referral code</label>
+          <input id="refCode" placeholder="Enter a friend's referral code" style="text-transform:uppercase">
+        </div>
+        <button class="btn btn-ghost btn-sm" id="refApplyBtn" style="margin-bottom:16px">Apply</button>
+      </div>
+      <div id="refMsg" style="margin-top:10px;font-size:.86rem"></div>
+    </div>`;
+}
+
 function updateTotal() {
   const p = service.packages.find(x => x.id === selectedPkg);
   const base = p.price;
@@ -189,8 +273,32 @@ function updateTotal() {
     const min = rush.minSurcharge || 5;
     rushSurcharge = Math.max(base * rate, min);
   }
-  const total = Math.round((base + rushSurcharge + addonsTotal) * 100) / 100;
-  document.getElementById('totalLbl').textContent = fmt(total);
+  const grossTotal = Math.round((base + rushSurcharge + addonsTotal) * 100) / 100;
+  
+  // Referral discount
+  let referralDiscount = 0;
+  if (referralValid && referralCfg.enabled) {
+    referralDiscount = referralCfg.creditUsd || 2;
+  }
+  const netTotal = Math.max(0, Math.round((grossTotal - referralDiscount) * 100) / 100);
+  
+  // Installment deposit
+  const instPlan = installmentPlans.find(p => p.id === selectedInstallment);
+  const depositPct = instPlan ? instPlan.depositPct : 1;
+  const depositAmount = Math.round(netTotal * depositPct * 100) / 100;
+  
+  const totalLbl = document.getElementById('totalLbl');
+  if (totalLbl) totalLbl.textContent = fmt(depositAmount);
+  
+  // Update the "Total:" label text
+  const totalLabelSpan = totalLbl ? totalLbl.parentElement.querySelector('span') : null;
+  if (totalLabelSpan) {
+    if (selectedInstallment !== 'pay-full') {
+      totalLabelSpan.innerHTML = `(${getCurrency()}) — deposit now, ${fmt(Math.round((netTotal - depositAmount) * 100) / 100)} later`;
+    } else {
+      totalLabelSpan.textContent = `(${getCurrency()})`;
+    }
+  }
 
   // Show a breakdown summary
   const sum = document.getElementById('upsellSummary');
@@ -198,7 +306,14 @@ function updateTotal() {
     const lines = [`Package (${esc(p.name)}): <b>${fmt(base)}</b>`];
     if (rushOn && rushSurcharge > 0) lines.push(`⚡ Rush delivery: <b>+${fmt(rushSurcharge)}</b>`);
     addons.forEach(a => lines.push(`🧩 ${esc(a.name)}: <b>+${fmt(a.price)}</b>`));
-    lines.push(`<span style="color:var(--accent2)">Order total: <b>${fmt(total)}</b></span>`);
+    if (referralDiscount > 0) lines.push(`🎁 Referral discount: <b>-${fmt(referralDiscount)}</b>`);
+    if (selectedInstallment !== 'pay-full' && instPlan) {
+      lines.push(`<span style="color:var(--accent)">💳 Paying in ${instPlan.splits || 2} installments (${instPlan.label})</span>`);
+      lines.push(`<span style="color:var(--accent2)">Deposit due now: <b>${fmt(depositAmount)}</b></span>`);
+      lines.push(`<span style="color:var(--muted)">Remaining (pay later): ${fmt(Math.round((netTotal - depositAmount) * 100) / 100)}</span>`);
+    } else {
+      lines.push(`<span style="color:var(--accent2)">Order total: <b>${fmt(netTotal)}</b></span>`);
+    }
     sum.innerHTML = lines.join('<br>');
   }
 }
@@ -207,6 +322,31 @@ function setBtnLoading(loading) {
   const btn = document.getElementById('placeBtn');
   btn.disabled = loading;
   btn.innerHTML = loading ? '<span class="spin"></span> Processing…' : 'Pay with Paystack →';
+}
+
+async function applyReferral() {
+  const code = document.getElementById('refCode').value.trim().toUpperCase();
+  const msg = document.getElementById('refMsg');
+  if (!code) { msg.innerHTML = '<span style="color:var(--warn)">Please enter a code.</span>'; return; }
+  msg.innerHTML = '<span style="color:var(--muted)">Checking...</span>';
+  try {
+    const res = await API.post('/referrals/validate', { code });
+    if (res.valid) {
+      referralValid = res;
+      referralCode = code;
+      msg.innerHTML = `<span style="color:var(--accent2)">✅ Code valid! You'll save ${fmt(referralCfg.creditUsd || 2)} on this order.</span>`;
+      updateTotal();
+      toast('Referral discount applied! 🎁');
+    } else {
+      referralValid = null;
+      msg.innerHTML = '<span style="color:var(--warn)">❌ Invalid or expired code.</span>';
+      updateTotal();
+    }
+  } catch (e) {
+    referralValid = null;
+    msg.innerHTML = '<span style="color:var(--warn)">❌ ' + esc(e.message) + '</span>';
+    updateTotal();
+  }
 }
 
 async function placeOrder() {
@@ -225,7 +365,11 @@ async function placeOrder() {
       packageId: selectedPkg,
       requirements: document.getElementById('reqTxt').value,
       rushDelivery: rushOn,
-      addons: Array.from(selectedAddons)
+      addons: Array.from(selectedAddons),
+      installmentPlan: selectedInstallment,
+      whatsappDelivery: waDeliveryOn,
+      whatsappNumber: waDeliveryOn ? document.getElementById('waPhone').value : '',
+      referralCode: referralCode || undefined
     });
 
     // 2) Open Paystack checkout — inline popup when possible, redirect otherwise

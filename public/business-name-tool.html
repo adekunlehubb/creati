@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Free Business Name & Slogan Generator — CreatiHub</title>
+<meta name="description" content="Stuck on a name? Get instant business name and slogan ideas for free — then order your logo and brand kit from CreatiHub.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✆</text></svg>">
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+
+<section class="hero" style="padding:60px 0 40px">
+  <div class="container" style="max-width:880px;text-align:center">
+    <div style="font-size:3rem;margin-bottom:12px">💡🏷️</div>
+    <h1 style="font-size:2.6rem;line-height:1.15;margin-bottom:16px">Free <span class="grad-text">Business Name</span> & Slogan Generator</h1>
+    <p class="lead" style="max-width:620px;margin:0 auto 28px">Starting a new business? Tell us your idea and our AI will instantly generate catchy business names with matching slogans — completely free. Like one? Order your logo and full brand kit in one click.</p>
+    <div class="hero-badges" style="justify-content:center">
+      <div class="hero-badge">✨ <b>Instant</b> results</div>
+      <div class="hero-badge">🆓 <b>100% Free</b> — no signup</div>
+      <div class="hero-badge">🇳🇬 <b>Naija-ready</b> naming patterns</div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:0">
+  <div class="container bnt-wrap">
+    <div class="panel">
+      <div class="field">
+        <label>What's your business idea? <span style="color:var(--muted);font-weight:400">(e.g. "fashion boutique", "food delivery", "tech startup")</span></label>
+        <input id="bntIdea" placeholder="Describe your business in a few words..." style="font-size:1.05rem">
+      </div>
+      <div class="field">
+        <label>Industry / niche <span style="color:var(--muted);font-weight:400">(optional — helps tailor the names)</span></label>
+        <select id="bntIndustry">
+          <option value="">— Any —</option>
+          <option>Fashion & Clothing</option>
+          <option>Food & Restaurant</option>
+          <option>Beauty & Cosmetics</option>
+          <option>Tech & Software</option>
+          <option>Real Estate</option>
+          <option>Events & Planning</option>
+          <option>Health & Fitness</option>
+          <option>Education & Training</option>
+          <option>Marketing & Media</option>
+          <option>Retail & Shopping</option>
+          <option>Finance & Insurance</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div id="bntMsg"></div>
+      <button class="btn btn-primary" id="bntBtn" style="width:100%;font-size:1.05rem;padding:14px">✨ Generate Business Names</button>
+    </div>
+
+    <div id="bntResults" class="bnt-results" style="display:none"></div>
+
+    <div id="bntUpsell" style="display:none;margin-top:40px">
+      <div class="cta-banner">
+        <h2>Love your new name? 🎨</h2>
+        <p>Let CreatiHub bring it to life with a professional logo, business card, and full brand identity.</p>
+        <a href="/order?service=brand-in-a-box" class="btn" style="font-size:1.05rem;padding:14px 32px">🎁 Get the Brand-in-a-Box Kit →</a>
+        <div style="margin-top:16px"><a href="/order?service=logo-design" style="color:rgba(255,255,255,.85);font-size:.9rem;text-decoration:underline">Or just order a logo →</a></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="background:var(--bg2);padding:48px 0">
+  <div class="container" style="max-width:760px;text-align:center">
+    <h2 class="section-title" style="font-size:1.6rem">Why use our name generator?</h2>
+    <div class="feat-strip" style="grid-template-columns:repeat(3,1fr);margin-top:28px">
+      <div class="feat-chip"><div class="fci">⚡</div><div class="fct">Instant Ideas</div><div class="fcd">Get 6+ names in seconds</div></div>
+      <div class="feat-chip"><div class="fci">🎯</div><div class="fct">With Slogans</div><div class="fcd">Each name comes with a tagline</div></div>
+      <div class="feat-chip"><div class="fci">🚀</div><div class="fct">Launch Ready</div><div class="fcd">Turn your name into a brand instantly</div></div>
+    </div>
+  </div>
+</section>
+
+<script src="/js/app.js"></script>
+<script>
+renderNav('home');
+renderFooter();
+initChatWidget();
+
+const btn = document.getElementById('bntBtn');
+const msg = document.getElementById('bntMsg');
+const resultsDiv = document.getElementById('bntResults');
+const upsellDiv = document.getElementById('bntUpsell');
+
+btn.addEventListener('click', async () => {
+  const idea = document.getElementById('bntIdea').value.trim();
+  if (!idea) { msg.innerHTML = '<div class="form-error">Please describe your business idea first.</div>'; return; }
+  msg.innerHTML = '';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Generating...';
+  try {
+    const res = await API.post('/lead-magnet/business-name', { idea, industry: document.getElementById('bntIndustry').value });
+    const names = res.names || [];
+    if (!names.length) { msg.innerHTML = '<div class="form-error">No names generated. Try a different idea.</div>'; return; }
+    resultsDiv.style.display = 'grid';
+    resultsDiv.innerHTML = names.map((n, i) => `
+      <div class="bnt-result">
+        <div class="bnr-name">${esc(n.name)}</div>
+        <div class="bnr-slogan">"${esc(n.slogan)}"</div>
+        <div class="bnr-actions">
+          <button class="btn btn-ghost btn-sm" onclick="copyName(${i})">📋 Copy</button>
+          <a href="/order?service=brand-in-a-box" class="btn btn-primary btn-sm">🎨 Brand it →</a>
+        </div>
+      </div>`).join('');
+    upsellDiv.style.display = 'block';
+    window._bntNames = names;
+    toast(names.length + ' names generated! 🎉');
+  } catch (e) {
+    msg.innerHTML = '<div class="form-error">' + esc(e.message) + '</div>';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✨ Generate Business Names';
+  }
+});
+
+window.copyName = function(i) {
+  const n = window._bntNames[i];
+  const txt = n.name + ' — ' + n.slogan;
+  navigator.clipboard.writeText(txt).then(() => toast('Copied: ' + n.name)).catch(() => toast('Copy failed — select and copy manually'));
+};
+</script>
+</body>
+</html>
