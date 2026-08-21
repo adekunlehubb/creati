@@ -375,6 +375,94 @@ const seedServices = [
       { id: 'standard', name: 'Pro Kit', price: 99, desc: 'Everything in Starter + 3 extra social templates & vector files', features: ['Everything in Starter Kit', '3 logo concepts', '6 social media templates (2 platforms)', 'Vector logo files (SVG/EPS)', 'Email signature design', '48h delivery', '4 revisions'] },
       { id: 'premium', name: 'Launch Kit', price: 199, desc: 'Complete launch package + website landing page + commercial license', features: ['Everything in Pro Kit', '5 logo concepts', '1-page website/landing page', 'Letterhead + invoice template', 'Full commercial license', '24h priority delivery', 'Unlimited revisions'] }
     ]
+  },
+  // ============================================================
+  // NEW SERVICES — high-demand, low-competition for the Nigerian/African market
+  // ============================================================
+  {
+    id: 'whatsapp-business-setup',
+    name: 'WhatsApp Business Setup & Catalog',
+    category: 'Business',
+    icon: '💬',
+    tagline: 'Turn WhatsApp into your #1 sales channel',
+    description: 'Professional WhatsApp Business setup for SMEs and side hustles. We configure your business profile, build a product catalog, set up auto-reply and greeting messages, create broadcast lists, and train you on WhatsApp marketing — so customers can browse, order, and pay without ever leaving the chat.',
+    image: 'https://images.unsplash.com/photo-1611605698335-8b1569810432?w=800&q=80',
+    deliveryDays: 2,
+    rating: 5.0,
+    orders: 85,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 50, desc: 'Profile setup + catalog (up to 10 products)', features: ['WhatsApp Business profile setup', 'Product catalog (up to 10 items)', 'Greeting + away auto-reply messages', 'Business profile photo & cover', 'Quick reply templates (5)', 'Setup guide PDF'] },
+      { id: 'standard', name: 'Standard', price: 150, desc: 'Catalog + automation + broadcast strategy', features: ['Everything in Basic', 'Product catalog (up to 30 items)', 'Full auto-reply automation flow', 'Broadcast list strategy + setup', 'WhatsApp link + QR code for marketing', 'Order form template', '1hr training call'] },
+      { id: 'premium', name: 'Premium', price: 350, desc: 'Full WhatsApp Business empire + 30-day support', features: ['Everything in Standard', 'Unlimited product catalog', 'Custom chatbot flow (FAQ automation)', 'WhatsApp Click-to-Chat ads setup guide', 'Customer segmentation strategy', 'Sales funnel templates', '30 days ongoing support', 'Monthly analytics review'] }
+    ]
+  },
+  {
+    id: 'business-card-design',
+    name: 'Business Card & Stationery Design',
+    category: 'Graphic Design',
+    icon: '💳',
+    tagline: 'Professional cards & stationery that make you look legit',
+    description: 'Premium business card and stationery design for professionals and businesses. From a single card to a full corporate identity suite — letterheads, envelopes, ID cards, and compliment slips. Print-ready files delivered with bleed and crop marks, ready for any printer in Nigeria or abroad.',
+    image: 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=800&q=80',
+    deliveryDays: 1,
+    rating: 4.9,
+    orders: 410,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 15, desc: '1 business card design (front + back)', features: ['1 business card concept', 'Front + back design', '2 revisions', 'Print-ready PDF + PNG', '24h delivery'] },
+      { id: 'standard', name: 'Standard', price: 35, desc: 'Card + letterhead + email signature', features: ['2 business card concepts', 'Letterhead design', 'Email signature design', '3 revisions', 'Print-ready files with bleed', 'Source file (PSD/AI)'] },
+      { id: 'premium', name: 'Premium', price: 75, desc: 'Full stationery suite (card, letterhead, envelope, ID, compliment slip)', features: ['3 business card concepts', 'Letterhead + envelope design', 'Staff ID card template', 'Compliment slip design', 'Invoice & receipt template', 'Unlimited revisions', 'Brand guidelines sheet', 'All source files'] }
+    ]
+  },
+  {
+    id: 'menu-design',
+    name: 'Menu Design (Restaurants & Bars)',
+    category: 'Graphic Design',
+    icon: '🍽️',
+    tagline: 'Mouth-watering menus that sell more',
+    description: 'Professional menu design for restaurants, bars, bukas, food trucks, and cloud kitchens. From a simple one-page digital menu to a full multi-page print-ready menu book with QR code ordering. We make your food look as good as it tastes — with appetite-triggering layouts, food photography placement, and pricing psychology.',
+    image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80',
+    deliveryDays: 2,
+    rating: 4.8,
+    orders: 195,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 20, desc: '1-page digital menu (up to 20 items)', features: ['1-page menu design', 'Up to 20 food/drink items', '2 revisions', 'PDF + PNG (WhatsApp/share ready)', '48h delivery'] },
+      { id: 'standard', name: 'Standard', price: 45, desc: 'Multi-page menu + QR code for digital ordering', features: ['2-4 page menu design', 'Up to 50 items', 'QR code for digital menu access', '3 revisions', 'Print-ready PDF + digital PDF', 'Menu category layout optimization'] },
+      { id: 'premium', name: 'Premium', price: 99, desc: 'Full menu book + drinks menu + table tent + promo insert', features: ['Full menu book (up to 8 pages)', 'Separate drinks/drinks menu', 'Table tent card design', 'Promo insert flyer', 'QR code menu + WhatsApp ordering setup', 'Unlimited revisions', 'Print-ready files with bleed', 'Food photography placement guide'] }
+    ]
+  },
+  {
+    id: 'cv-resume-design',
+    name: 'CV & Resume Design',
+    category: 'Writing',
+    icon: '📄',
+    tagline: 'Land more interviews with a CV that stands out',
+    description: 'Professional CV and resume design for job seekers, graduates, and career changers. ATS-optimized layouts that pass recruitment software AND look impressive to human recruiters. Includes cover letter design, LinkedIn profile optimization tips, and industry-specific templates. Perfect for NYSC graduates, fresh graduates, and mid-career professionals.',
+    image: 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=800&q=80',
+    deliveryDays: 1,
+    rating: 4.9,
+    orders: 680,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 15, desc: '1-page CV/resume redesign', features: ['1-page CV redesign', 'ATS-friendly layout', '2 revisions', 'PDF + editable Word/Docs file', '24h delivery'] },
+      { id: 'standard', name: 'Standard', price: 35, desc: 'CV + cover letter + LinkedIn headline rewrite', features: ['1-2 page CV redesign', 'Matching cover letter design', 'LinkedIn headline + summary rewrite', '3 revisions', 'PDF + Word + Docs files', 'ATS optimization check', 'Interview tips cheat sheet'] },
+      { id: 'premium', name: 'Premium', price: 75, desc: 'Executive package: CV + cover letter + LinkedIn full optimization', features: ['2-page executive CV design', 'Cover letter + follow-up email template', 'Full LinkedIn profile optimization', 'CV for 2 different job roles', 'Unlimited revisions', 'All formats (PDF, Word, Docs, Pages)', 'Salary negotiation guide', '30-day revision guarantee'] }
+    ]
+  },
+  {
+    id: 'photo-restoration',
+    name: 'AI Photo Restoration & Enhancement',
+    category: 'Photography',
+    icon: '📸',
+    tagline: 'Bring old, damaged & blurry photos back to life',
+    description: 'AI-powered photo restoration and enhancement service. Restore torn, faded, and water-damaged family photos. Colorize black-and-white pictures. Upscale and sharpen blurry images. Remove backgrounds, remove objects, and fix lighting. Perfect for preserving family memories, restoring grandparent photos, or fixing product photos.',
+    image: 'https://images.unsplash.com/photo-1606214174585-fe31582dc6ee?w=800&q=80',
+    deliveryDays: 1,
+    rating: 5.0,
+    orders: 340,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 5, desc: '1 photo restore or enhance', features: ['1 photo restoration OR enhancement', 'Scratch & damage repair', 'Color correction', '2 revisions', 'High-res JPG + PNG', '12h delivery'] },
+      { id: 'standard', name: 'Standard', price: 25, desc: 'Pack of 10 photos', features: ['10 photos (restore, enhance or colorize)', 'B&W colorization available', 'Background removal included', '3 revisions per photo', 'High-res + source files', '24h delivery'] },
+      { id: 'premium', name: 'Premium', price: 50, desc: 'Unlimited monthly + priority', features: ['Unlimited photos for 30 days', 'All services: restore, colorize, enhance, background removal', 'Object removal & face repair', 'Unlimited revisions', 'Priority 6h delivery', 'Private gallery + cloud backup', 'Print-ready files'] }
+    ]
   }
 ];
 
