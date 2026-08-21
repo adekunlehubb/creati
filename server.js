@@ -906,6 +906,13 @@ app.post('/api/admin/chat', auth, adminOnly, (req, res) => {
   res.json(result);
 });
 
+// Admin: Get chat history (for Co-Founder conversation persistence)
+app.get('/api/admin/chat/history', auth, adminOnly, (req, res) => {
+  const limit = parseInt(req.query.limit) || 100;
+  const messages = (db.adminChats || []).slice(-limit);
+  res.json({ messages });
+});
+
 // ---------------- Admin: Live AI Activity feed ----------------
 // Returns the most recent AI tasks so the admin can watch Nova work in real
 // time. Supports a `since` param (ISO date) so the client can poll for only

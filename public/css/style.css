@@ -655,3 +655,49 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .cta-banner h2 { color: #fff; font-size: 2rem; margin-bottom: 12px; }
 .cta-banner p { color: rgba(255,255,255,.9); margin-bottom: 22px; font-size: 1.05rem; }
 .cta-banner .btn { background: #fff; color: var(--primary); font-weight: 700; }
+
+/* ============================================================ AI CO-FOUNDER ============================================================ */
+.cf-quick {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: .82rem;
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all .2s;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.cf-quick:hover {
+  border-color: var(--accent);
+  background: var(--card);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.2);
+}
+.cf-quick.cf-strat {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb, 139,92,246), .08);
+}
+.cf-quick.cf-strat:hover {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.cf-copy-btn {
+  display: inline-block;
+  margin-top: 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: .72rem;
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all .2s;
+}
+.cf-copy-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.chat-msg.bot { position: relative; }

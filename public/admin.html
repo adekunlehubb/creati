@@ -30,6 +30,7 @@
       <a href="#data" data-view="data">💾 Data & Backups</a>
       <a href="#aisafety" data-view="aisafety">🛡️ AI Safety</a>
       <a href="#ai" data-view="ai">🤖 Nova AI Insights</a>
+      <a href="#cofounder" data-view="cofounder">🧠 AI Co-Founder</a>
     </aside>
     <main class="dash-main" id="dashMain"><div class="empty">Loading…</div></main>
   </div>
@@ -74,6 +75,7 @@ function renderView() {
   if (view === 'data') return renderData();
   if (view === 'aisafety') return renderAiSafety();
   if (view === 'ai') return renderAI();
+  if (view === 'cofounder') return renderCoFounder();
 }
 
 /* ============================================================ SHARED ============================================================ */
@@ -845,6 +847,147 @@ async function renderReferralsAdmin() {
   } catch (e) {
     document.getElementById('refAdminContent').innerHTML = '<div class="empty">Failed to load referral data.</div>';
   }
+}
+
+/* ============================================================ AI CO-FOUNDER ============================================================ */
+function renderCoFounder() {
+  main.innerHTML = `
+    <div class="page-head">
+      <h2>🧠 AI Co-Founder — Nova</h2>
+      <p style="color:var(--muted);margin-top:4px;max-width:720px">Your AI thought partner. Discuss growth strategy, brainstorm ideas, and generate marketing content — promo video scripts, flyer copy, social media posts, cartoon ad concepts, WhatsApp broadcasts, email campaigns, and ad copy. All in one place.</p>
+    </div>
+
+    <!-- Quick Action Buttons -->
+    <div class="panel" style="margin-bottom:16px;padding:16px">
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">⚡ Quick Actions — Generate Content Instantly</div>
+      <div id="cfQuickActions" style="display:flex;flex-wrap:wrap;gap:8px">
+        <button class="cf-quick" data-msg="Generate a promo video script">🎬 Promo Video Script</button>
+        <button class="cf-quick" data-msg="Create a flyer for our platform">🎨 Platform Flyer Copy</button>
+        <button class="cf-quick" data-msg="Write social media posts">📝 Social Media Posts</button>
+        <button class="cf-quick" data-msg="Create a cartoon ad concept">🎭 Cartoon Ad Concept</button>
+        <button class="cf-quick" data-msg="Write WhatsApp broadcast messages">📱 WhatsApp Broadcasts</button>
+        <button class="cf-quick" data-msg="Write email campaigns">📧 Email Campaigns</button>
+        <button class="cf-quick" data-msg="Write ad copy">📊 Facebook/IG Ad Copy</button>
+      </div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="font-size:.82rem;color:var(--muted);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">🧠 Strategy & Brainstorming</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <button class="cf-quick cf-strat" data-msg="Let's discuss growth">🚀 Let's Discuss Growth</button>
+          <button class="cf-quick cf-strat" data-msg="How do we get more traffic?">📈 How to Get More Traffic</button>
+          <button class="cf-quick cf-strat" data-msg="What features should we add next?">💡 Feature Roadmap Ideas</button>
+          <button class="cf-quick cf-strat" data-msg="How can we make more money?">💰 Monetization Ideas</button>
+          <button class="cf-quick cf-strat" data-msg="How do we stand out?">🏆 How to Stand Out</button>
+          <button class="cf-quick cf-strat" data-msg="How do we scale?">📈 How to Scale Up</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat Interface -->
+    <div class="panel" style="display:flex;flex-direction:column;height:520px;padding:0;overflow:hidden">
+      <div class="chat-head"><div class="nova">✦</div><div><b>Nova Co-Founder</b><small>Your AI growth partner & content generator</small></div></div>
+      <div class="chat-body" id="cfBody"></div>
+      <div class="chat-sugg" id="cfSugg"></div>
+      <div class="chat-input">
+        <input id="cfIn" placeholder="Ask for strategy advice, or request content to be generated…" maxlength="1000">
+        <button id="cfSend">➤</button>
+      </div>
+    </div>
+
+    <!-- Tips -->
+    <div class="panel" style="margin-top:16px;padding:16px">
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">💡 Tips</div>
+      <ul style="margin:0;padding-left:18px;color:var(--muted);font-size:.86rem;line-height:1.7">
+        <li>Click any quick action button above to instantly generate marketing content</li>
+        <li>Generated content includes copy-ready text you can use immediately on social media, WhatsApp, or email</li>
+        <li>Ask strategy questions like "How do we get more traffic?" for detailed growth plans</li>
+        <li>Type "help" to see everything Nova can do</li>
+        <li>Your conversation is saved — refresh the page and your chat history persists</li>
+      </ul>
+    </div>`;
+
+  const body = document.getElementById('cfBody');
+  const sugg = document.getElementById('cfSugg');
+  const input = document.getElementById('cfIn');
+
+  function addMsg(text, who) {
+    const d = document.createElement('div');
+    d.className = 'chat-msg ' + (who === 'me' ? 'me' : 'bot');
+    d.innerHTML = mdLite(text);
+    // Add copy button to bot messages
+    if (who === 'bot') {
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'cf-copy-btn';
+      copyBtn.textContent = '📋 Copy';
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(text).then(() => {
+          copyBtn.textContent = '✅ Copied!';
+          setTimeout(() => { copyBtn.textContent = '📋 Copy'; }, 2000);
+        }).catch(() => {
+          // Fallback
+          const ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          document.execCommand('copy'); document.body.removeChild(ta);
+          copyBtn.textContent = '✅ Copied!';
+          setTimeout(() => { copyBtn.textContent = '📋 Copy'; }, 2000);
+        });
+      });
+      d.appendChild(copyBtn);
+    }
+    body.appendChild(d);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  function setSugg(list) {
+    sugg.innerHTML = '';
+    (list || []).forEach(s => {
+      const b = document.createElement('button');
+      b.textContent = s;
+      b.addEventListener('click', () => send(s));
+      sugg.appendChild(b);
+    });
+  }
+
+  async function send(text) {
+    if (!text.trim()) return;
+    addMsg(text, 'me');
+    input.value = '';
+    setSugg([]);
+    const typing = document.createElement('div');
+    typing.className = 'chat-msg bot typing';
+    typing.innerHTML = '<i></i><i></i><i></i>';
+    body.appendChild(typing);
+    body.scrollTop = body.scrollHeight;
+    try {
+      const res = await API.post('/admin/chat', { message: text });
+      typing.remove();
+      addMsg(res.reply, 'bot');
+      setSugg(res.suggestions);
+    } catch (e) {
+      typing.remove();
+      addMsg('Error: ' + e.message, 'bot');
+    }
+  }
+
+  // Wire up quick action buttons
+  document.querySelectorAll('.cf-quick').forEach(btn => {
+    btn.addEventListener('click', () => send(btn.dataset.msg));
+  });
+
+  // Wire up send button + input
+  document.getElementById('cfSend').addEventListener('click', () => send(input.value));
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') send(input.value); });
+
+  // Load conversation history (from server)
+  API.get('/admin/chat/history').then(data => {
+    if (data.messages && data.messages.length > 0) {
+      data.messages.forEach(m => addMsg(m.message, m.role === 'admin' ? 'me' : 'bot'));
+      setSugg(['Help', "Let's discuss growth", 'Generate a promo video script', 'Business summary']);
+    } else {
+      send('hello');
+    }
+  }).catch(() => {
+    send('hello');
+  });
 }
 
 function renderAI() {
