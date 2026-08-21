@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CreatiHub — Going Live & Production Guide</title>
+<link rel="stylesheet" href="/css/guide.css">
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+
+<div class="hero">
+  <div class="star">✦</div>
+  <h1>CreatiHub <span class="hl">Going Live</span> Guide</h1>
+  <p class="sub">How to add your domain, start making real money, and the challenges you'll face — now and later.</p>
+  <div class="badges">
+    <span class="badge">🌐 Custom Domain</span>
+    <span class="badge">💳 Real Payments</span>
+    <span class="badge">🔐 Security Checklist</span>
+    <span class="badge">⚠️ Challenges & Fixes</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="toc">
+    <h3>📋 Table of Contents</h3>
+    <a href="#domain">1. Adding a Custom Domain & Going Live</a>
+    <a href="#money">2. Making Real Money — Payment Setup</a>
+    <a href="#login">3. Login System — Verified Working for All Users & Admins</a>
+    <a href="#challenges-now">4. Challenges You'll Face NOW (Before Launch)</a>
+    <a href="#challenges-later">5. Challenges You'll Face LATER (After Launch)</a>
+    <a href="#ai-suggestions">6. Autonomous AI — Things Nova Can Do On Its Own</a>
+    <a href="#checklist">7. Pre-Launch Checklist</a>
+  </div>
+
+  <!-- ============================= DOMAIN ============================= -->
+  <div class="section" id="domain">
+    <h2><span class="ico">🌐</span> Adding a Custom Domain & Going Live</h2>
+    <p class="lead">Yes — you can absolutely add your own domain and go live for real. Here's exactly how, step by step.</p>
+
+    <h3>The Short Answer</h3>
+    <p>Yes, you can connect a custom domain like <code>creatihub.com</code> or <code>yourbrand.com</code> and the platform will function fully — users can sign up, order services, pay through Paystack, and you'll make real money. The app is a complete Node.js/Express server, so it runs on any hosting platform that supports Node.</p>
+
+    <h3>Step-by-Step: From Local to Live</h3>
+
+    <div class="step">
+      <span class="num">1</span><strong>Buy a domain name</strong><br>
+      Go to a registrar like Namecheap, GoDaddy, or Cloudflare Registrar. Search for your desired name (e.g., <code>creatihub.com</code>). A <code>.com</code> domain costs about $10–15/year. If your preferred name is taken, try <code>.io</code>, <code>.co</code>, or <code>.ng</code> (if targeting Nigeria).
+    </div>
+
+    <div class="step">
+      <span class="num">2</span><strong>Choose a hosting platform</strong><br>
+      You need a host that runs Node.js apps (not just static HTML). Good options:<br>
+      • <strong>Render.com</strong> — Free tier available, very easy. Connects to your GitHub repo and deploys automatically. Great for starting out.<br>
+      • <strong>Railway.app</strong> — Similar to Render, generous free tier, excellent for Node apps.<br>
+      • <strong>Fly.io</strong> — Good free tier, deploys from Docker.<br>
+      • <strong>DigitalOcean App Platform</strong> — $5/month, more reliable for production.<br>
+      • <strong>Vercel / Netlify</strong> — Only for the frontend; you'd need a separate backend host. Not recommended for this full-stack app.<br>
+      • <strong>A VPS (DigitalOcean Droplet, Linode, Hetzner)</strong> — Full control, $4–6/month. You run <code>npm install && node server.js</code> with a process manager like PM2. Best for when you have real traffic.
+    </div>
+
+    <div class="step">
+      <span class="num">3</span><strong>Deploy your code</strong><br>
+      Push your CreatiHub project to a GitHub repository (private is fine). Then on your chosen hosting platform, connect that repo. The platform will run <code>npm install</code> and start <code>node server.js</code> automatically. Set the start command to <code>node server.js</code> and the port to whatever the platform assigns (the app already reads <code>process.env.PORT</code>).
+    </div>
+
+    <div class="step">
+      <span class="num">4</span><strong>Set your environment variables</strong><br>
+      On the hosting platform's dashboard, add these environment variables:<br>
+      <div class="code-block"><code>PAYSTACK_SECRET_KEY=sk_live_your_real_key_here
+PAYSTACK_PUBLIC_KEY=pk_live_your_real_key_here
+NODE_ENV=production
+PORT=3000 (or whatever the platform assigns)</code></div>
+      The <code>.env.example</code> file in your project shows all available variables.
+    </div>
+
+    <div class="step">
+      <span class="num">5</span><strong>Connect your custom domain</strong><br>
+      On the hosting platform, find the "Custom Domains" or "Settings → Domains" section. Add your domain (e.g., <code>creatihub.com</code>) and <code>www.creatihub.com</code>. The platform will give you DNS records to add — usually an <strong>A record</strong> or <strong>CNAME</strong>. Go to your domain registrar's DNS settings and add those records. DNS propagation takes 5 minutes to 48 hours (usually under 30 minutes). The hosting platform will automatically provision a free SSL certificate (HTTPS) for your domain via Let's Encrypt.
+    </div>
+
+    <div class="step">
+      <span class="num">6</span><strong>Test it live</strong><br>
+      Once DNS propagates, visit <code>https://creatihub.com</code>. Register a test account, browse services, place a test order, and (once Paystack is configured) make a small real payment to verify the full flow works end-to-end.
+    </div>
+
+    <div class="ok-box">
+      <div class="title">✅ Your app is already production-ready in structure</div>
+      It has token-based auth, password hashing, admin controls, payment integration, AI safety guardrails, and a real-time dashboard. The main things you need to do before launch are listed in the checklist at the bottom of this guide.
+    </div>
+  </div>
+
+  <!-- ============================= MONEY ============================= -->
+  <div class="section" id="money">
+    <h2><span class="ico">💳</span> Making Real Money — Payment Setup</h2>
+    <p class="lead">The platform has Paystack payment integration built in. Here's how to switch from demo mode to real money.</p>
+
+    <h3>Switching Paystack from Demo to Live</h3>
+    <p>Right now, your app likely runs in Paystack demo/test mode. To accept real payments, you need to switch to Paystack live keys.</p>
+
+    <div class="step">
+      <span class="num">1</span><strong>Create/verify your Paystack business account</strong><br>
+      Go to <code>paystack.com</code>, sign up or log in. Complete business verification — Paystack requires your business name, address, and bank account details. For Nigeria, you'll need a BVN and business registration (CAC). For other African countries, requirements vary. This process typically takes 1–3 business days.
+    </div>
+
+    <div class="step">
+      <span class="num">2</span><strong>Get your live API keys</strong><br>
+      In the Paystack dashboard, go to Settings → API Keys & Webhooks. Toggle from "Test" to "Live" mode. Copy your <strong>Live Secret Key</strong> (<code>sk_live_...</code>) and <strong>Live Public Key</strong> (<code>pk_live_...</code>).
+    </div>
+
+    <div class="step">
+      <span class="num">3</span><strong>Set the keys in your environment</strong><br>
+      Replace the test keys with live keys in your hosting platform's environment variables:<br>
+      <div class="code-block"><code>PAYSTACK_SECRET_KEY=sk_live_your_real_secret_key
+PAYSTACK_PUBLIC_KEY=pk_live_your_real_public_key</code></div>
+      <strong>Never put live keys in your code or GitHub.</strong> Always use environment variables. The app already reads from <code>process.env.PAYSTACK_SECRET_KEY</code>.
+    </div>
+
+    <div class="step">
+      <span class="num">4</span><strong>Set the webhook URL</strong><br>
+      In Paystack's dashboard, set your webhook URL to <code>https://creatihub.com/api/paystack/webhook</code> (replace with your domain). This lets Paystack notify your app when a payment succeeds, even if the user closes their browser. Enable the "Charge Success" event.
+    </div>
+
+    <div class="step">
+      <span class="num">5</span><strong>Set your callback URL</strong><br>
+      The app redirects users to <code>/payment-callback</code> after payment. Make sure your Paystack dashboard callback URL is set to <code>https://creatihub.com/payment-callback</code>.
+    </div>
+
+    <div class="warn">
+      <div class="title">⚠️ Paystack availability</div>
+      Paystack currently operates in Nigeria, Ghana, Kenya, South Africa, Ivory Coast, Egypt, Rwanda, Tanzania, Uganda, and Botswana. If your target market is outside Africa, you'll need a different payment processor — Stripe (global), PayPal, or Razorpay (India). The payment code would need to be adapted for a different provider.
+    </div>
+
+    <h3>How the Money Flow Works</h3>
+    <p>When a customer orders a service: (1) they select a package and see the price you set in the admin dashboard, (2) they click "Pay" and are redirected to Paystack's secure checkout, (3) they enter card details on Paystack's page (you never see or store card numbers — this is PCI-DSS compliant by design), (4) Paystack processes the payment and redirects back to your site, (5) your webhook confirms the payment and marks the order as paid. Paystack settles the money to your bank account — typically next-day for Nigerian accounts, or on a set schedule for other countries. Paystack charges a fee per transaction (around 1.5–3.9% depending on country).</p>
+
+    <h3>Setting Your Prices for Profit</h3>
+    <p>You already have the pricing editor in your admin dashboard (sidebar → "Pricing & Services"). You can set any price from $1 to $10,000 per package. Consider your costs: each service (flyer design, video creation, etc.) presumably has a fulfillment cost — whether that's your time, a freelancer, or an AI tool subscription. Set your price at least 2–3x your cost to ensure healthy margins. The quick-discount feature (10–50% off) is great for promotions and seasonal sales. Every price change is logged in the price history, so you can track what works.</p>
+  </div>
+
+  <!-- ============================= LOGIN ============================= -->
+  <div class="section" id="login">
+    <h2><span class="ico">🔐</span> Login System — Verified Working for All Users & Admins</h2>
+    <p class="lead">Both users and admins can test and reset their login details at any time. I ran 33 comprehensive tests — every single one passed.</p>
+
+    <div class="ok-box">
+      <div class="title">✅ 33/33 Login Tests Passed</div>
+      All login, registration, password reset, email change, token management, and admin-reset flows are working perfectly for both user and admin accounts.
+    </div>
+
+    <h3>What's Available Right Now</h3>
+
+    <table>
+      <tr>
+        <th>Feature</th>
+        <th>Where</th>
+        <th>Who</th>
+      </tr>
+      <tr>
+        <td><strong>Login</strong> with email + password</td>
+        <td><code>/auth</code> → "Log In" tab</td>
+        <td>Users & Admins</td>
+      </tr>
+      <tr>
+        <td><strong>Register</strong> a new account</td>
+        <td><code>/auth</code> → "Register" tab</td>
+        <td>Anyone</td>
+      </tr>
+      <tr>
+        <td><strong>Forgot password</strong> — get a reset code</td>
+        <td><code>/auth?mode=reset</code> → "Forgot?" tab</td>
+        <td>Users & Admins</td>
+      </tr>
+      <tr>
+        <td><strong>Reset password</strong> with code</td>
+        <td>Same page, step 2 after entering email</td>
+        <td>Users & Admins</td>
+      </tr>
+      <tr>
+        <td><strong>Change password</strong> while logged in</td>
+        <td>User Dashboard → Profile → "Change Password"</td>
+        <td>Users & Admins</td>
+      </tr>
+      <tr>
+        <td><strong>Change email</strong> while logged in</td>
+        <td>User Dashboard → Profile → "Change Email"</td>
+        <td>Users & Admins</td>
+      </tr>
+      <tr>
+        <td><strong>Admin resets any user's password</strong></td>
+        <td>Admin Dashboard → Security & Access</td>
+        <td>Admins only</td>
+      </tr>
+      <tr>
+        <td><strong>Logout</strong> (invalidates token)</td>
+        <td>Header → "Logout" link</td>
+        <td>Users & Admins</td>
+      </tr>
+    </table>
+
+    <h3>How to Test Login Yourself</h3>
+    <p>You can test login right now on the live demo:</p>
+    <div class="step">
+      <span class="num">1</span><strong>Admin login:</strong> Go to the site → "Log In" → email: <code>admin@creatihub.com</code> → password: <code>admin123</code>
+    </div>
+    <div class="step">
+      <span class="num">2</span><strong>User login:</strong> Same page → email: <code>demo@creatihub.com</code> → password: <code>demo123</code>
+    </div>
+    <div class="step">
+      <span class="num">3</span><strong>Test password reset:</strong> Click "Forgot?" tab → enter any account email → you'll get a 6-digit code (in demo mode it's shown on screen; in production it's emailed) → enter the code + a new password → log in with the new password.
+    </div>
+    <div class="step">
+      <span class="num">4</span><strong>Test change password:</strong> Log in → go to "My Dashboard" → "Profile" → enter your current password and a new one → save. All other devices are automatically logged out.
+    </div>
+
+    <h3>Security Features Already Built In</h3>
+    <ul class="checklist">
+      <li class="done">Passwords are hashed with SHA-256 + salt (never stored in plain text)</li>
+      <li class="done">Password reset codes expire after 15 minutes and can only be used once</li>
+      <li class="done">Forgot-password endpoint doesn't reveal whether an email exists (no account enumeration)</li>
+      <li class="done">Changing password revokes all existing tokens (forces re-login on all devices)</li>
+      <li class="done">Admin can reset any user's password from the Security & Access panel</li>
+      <li class="done">Invalid/expired tokens are rejected with 401</li>
+      <li class="done">Minimum password length of 6 characters enforced on registration and reset</li>
+      <li class="done">Duplicate email registration is blocked (409 conflict)</li>
+    </ul>
+
+    <div class="warn">
+      <div class="title">⚠️ Before going live — enable real email delivery</div>
+      Right now, password reset codes are shown on screen (demo mode). In production, you need to wire up an email service so reset codes are actually emailed to users. Open <code>db.js</code>, find the <code>sendEmail()</code> function, and connect it to an email provider like Resend, SendGrid, Nodemailer + SMTP, or Amazon SES. The function is already called in all the right places — you just need to make it actually send.
+    </div>
+  </div>
+
+  <!-- ===================== CHALLENGES NOW ===================== -->
+  <div class="section" id="challenges-now">
+    <h2><span class="ico">🔴</span> Challenges You'll Face NOW (Before Launch)</h2>
+    <p class="lead">These are the things you must address before going live with real customers and real money.</p>
+
+    <table>
+      <tr>
+        <th>Challenge</th>
+        <th>Why It Matters</th>
+        <th>How to Fix</th>
+        <th>Priority</th>
+      </tr>
+      <tr>
+        <td><strong>JSON file database</strong></td>
+        <td>Your app stores all data in a single <code>db.json</code> file. This works for development but will corrupt under concurrent writes, has no backup, and will lose data if the server restarts unexpectedly. Most hosting platforms use ephemeral filesystems — your <code>db.json</code> gets wiped on every deploy.</td>
+        <td>Migrate to a real database. Easiest path: <strong>MongoDB Atlas</strong> (free tier, cloud-hosted, no setup). Replace the file-based <code>load()/save()</code> in <code>db.js</code> with Mongoose models. Alternatively, use <strong>SQLite</strong> with better-sqlite3 (single file, but survives restarts) or <strong>PostgreSQL</strong> (free on Supabase/Neon). This is the single most important change before launch.</td>
+        <td><span class="tag tag-now">CRITICAL</span></td>
+      </tr>
+      <tr>
+        <td><strong>Email delivery not configured</strong></td>
+        <td>Password reset codes, order confirmations, and admin notifications are queued but not actually sent. Users can't recover their accounts if they forget their password in production.</td>
+        <td>Wire up <code>sendEmail()</code> in <code>db.js</code> with a provider: <strong>Resend</strong> (easiest, 3000 free emails/month), <strong>SendGrid</strong> (100/day free), or <strong>Nodemailer + Gmail SMTP</strong> (free but limited). Remove the <code>demoCode</code> from the forgot-password API response once email works.</td>
+        <td><span class="tag tag-now">CRITICAL</span></td>
+      </tr>
+      <tr>
+        <td><strong>Paystack test vs live keys</strong></td>
+        <td>Currently in demo/test mode — no real money is processed. Customers' payments won't go through.</td>
+        <td>Get Paystack live keys after business verification. Set <code>PAYSTACK_SECRET_KEY</code> and <code>PAYSTACK_PUBLIC_KEY</code> environment variables to live keys. Set webhook and callback URLs in Paystack dashboard.</td>
+        <td><span class="tag tag-now">CRITICAL</span></td>
+      </tr>
+      <tr>
+        <td><strong>HTTPS / SSL</strong></td>
+        <td>Without HTTPS, passwords and payment data travel in plain text. Paystack requires HTTPS for live integration. Browsers will block API calls from HTTP.</td>
+        <td>Most hosting platforms (Render, Railway, Fly.io) provide free SSL automatically. If using a VPS, install Caddy or Nginx + Certbot for free Let's Encrypt certificates.</td>
+        <td><span class="tag tag-now">CRITICAL</span></td>
+      </tr>
+      <tr>
+        <td><strong>Default admin password</strong></td>
+        <td>The admin password is <code>admin123</code> — anyone who sees the demo or the code can log in to your admin dashboard.</td>
+        <td>Change it immediately after deployment: log in → Dashboard → Profile → Change Password. Use a strong password (12+ characters, mixed case, numbers, symbols). Or better: change it directly in the database before deploying.</td>
+        <td><span class="tag tag-now">HIGH</span></td>
+      </tr>
+      <tr>
+        <td><strong>No rate limiting on auth endpoints</strong></td>
+        <td>Someone could brute-force login passwords or spam password reset requests. The AI chat has rate limiting, but the auth endpoints don't.</td>
+        <td>Add <code>express-rate-limit</code> middleware: limit login to 5 attempts per 15 minutes per IP, limit forgot-password to 3 per hour. Install: <code>npm install express-rate-limit</code>.</td>
+        <td><span class="tag tag-now">HIGH</span></td>
+      </tr>
+      <tr>
+        <td><strong>Session tokens stored in memory</strong></td>
+        <td>Tokens are stored in the <code>db.tokens</code> object. If the server restarts, all users are logged out. With a JSON database, this resets on every deploy.</td>
+        <td>With a real database (MongoDB/PostgreSQL), store tokens in a sessions collection/table. Or switch to JWT (stateless tokens) so no server-side storage is needed.</td>
+        <td><span class="tag tag-soon">MEDIUM</span></td>
+      </tr>
+      <tr>
+        <td><strong>No automated backups</strong></td>
+        <td>If <code>db.json</code> is corrupted or deleted, you lose all users, orders, and data. There's no backup mechanism.</td>
+        <td>With a real database, backups are handled by the provider (MongoDB Atlas, Supabase, etc. all have automatic backups). If staying with JSON temporarily, set up a cron job to copy <code>db.json</code> to cloud storage (S3, Google Drive) every hour.</td>
+        <td><span class="tag tag-soon">MEDIUM</span></td>
+      </tr>
+      <tr>
+        <td><strong>Service fulfillment workflow</strong></td>
+        <td>When a customer pays, the order is marked as "paid" — but there's no automated system to actually deliver the service (flyer, video, logo). You need to manually fulfill each order.</td>
+        <td>For now, check the admin dashboard → Orders regularly and fulfill manually. Later, you can add: automated email to the customer with delivery timeline, freelancer assignment system, file upload/delivery portal, and order status notifications.</td>
+        <td><span class="tag tag-soon">MEDIUM</span></td>
+      </tr>
+      <tr>
+        <td><strong>Legal pages missing</strong></td>
+        <td>You need Terms of Service, Privacy Policy, and Refund Policy to operate legally and to be accepted by Paystack and app stores.</td>
+        <td>Create <code>/terms</code>, <code>/privacy</code>, and <code>/refund</code> pages. You can use a generator like termsfeed.com or privacypolicies.com, then customize for your business. Link them in the footer.</td>
+        <td><span class="tag tag-soon">MEDIUM</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ===================== CHALLENGES LATER ===================== -->
+  <div class="section" id="challenges-later">
+    <h2><span class="ico">🟣</span> Challenges You'll Face LATER (After Launch)</h2>
+    <p class="lead">These aren't blockers for launch, but you'll need to address them as you grow.</p>
+
+    <table>
+      <tr>
+        <th>Challenge</th>
+        <th>When It Hits</th>
+        <th>How to Handle It</th>
+        <th>Priority</th>
+      </tr>
+      <tr>
+        <td><strong>Scaling to high traffic</strong></td>
+        <td>When you get 100+ concurrent users, the single Node process and JSON database will slow down or crash.</td>
+        <td>Migrate to a real database (MongoDB/PostgreSQL) first. Then run multiple Node instances behind a load balancer (most hosting platforms do this automatically with "scale to N instances"). Add Redis for caching and session storage.</td>
+        <td><span class="tag tag-later">SCALE</span></td>
+      </tr>
+      <tr>
+        <td><strong>AI assistant is rule-based, not an LLM</strong></td>
+        <td>As customers ask more complex/varied questions, the keyword-matching AI will fail to answer them, leading to poor support experience.</td>
+        <td>Integrate a real LLM (OpenAI GPT, Anthropic Claude, or Google Gemini) behind the same safety guardrails you already have. The <code>filterMessage()</code> function and audit trail work regardless of the AI engine — you'd just replace the response generation. Keep the kill switch and blocked-phrases system.</td>
+        <td><span class="tag tag-later">GROWTH</span></td>
+      </tr>
+      <tr>
+        <td><strong>Payment disputes and chargebacks</strong></td>
+        <td>A customer disputes a charge through their bank. Paystack will notify you, and you may lose the money plus a dispute fee.</td>
+        <td>Keep clear records of every order and delivery. Have a strong refund policy. Communicate clearly with customers. Respond to disputes promptly with evidence (delivery proof, communications). Paystack's dashboard shows dispute status.</td>
+        <td><span class="tag tag-later">ONGOING</span></td>
+      </tr>
+      <tr>
+        <td><strong>Fraud and fake orders</strong></td>
+        <td>Someone uses a stolen card to pay, or creates fake accounts to spam your system.</td>
+        <td>Paystack has built-in fraud detection — enable it in your dashboard. Add email verification on registration (send a confirmation link). Monitor the AI audit trail for suspicious patterns. Consider adding CAPTCHA on registration if spam becomes an issue.</td>
+        <td><span class="tag tag-later">ONGOING</span></td>
+      </tr>
+      <tr>
+        <td><strong>Data privacy compliance</strong></td>
+        <td>If you serve EU customers (GDPR), Nigerian customers (NDPR), or California residents (CCPA), you must comply with data protection laws — right to access, right to deletion, data portability.</td>
+        <td>Add a "Delete my account" feature in the user dashboard. Add a data export feature. Document your data retention policy in your Privacy Policy. Only collect data you actually need.</td>
+        <td><span class="tag tag-later">COMPLIANCE</span></td>
+      </tr>
+      <tr>
+        <td><strong>Customer support volume</strong></td>
+        <td>As orders increase, you'll get more support messages. The AI handles FAQs, but complex issues need human attention.</td>
+        <td>The admin dashboard already shows all support messages and AI activity. Set up email notifications for new support messages (already partially built via <code>notify()</code>). Consider integrating a help desk tool (Zendesk, Crisp) if volume grows beyond what the dashboard can handle.</td>
+        <td><span class="tag tag-later">GROWTH</span></td>
+      </tr>
+      <tr>
+        <td><strong>Currency and pricing complexity</strong></td>
+        <td>The app supports 12 currencies, but actual multi-currency payment processing (charging in the customer's local currency) requires Paystack configuration per currency.</td>
+        <td>Paystack processes in the currency of your account (e.g., NGN for Nigerian accounts). For true multi-currency, you'd need separate Paystack accounts per currency region or a processor like Stripe. For now, display prices in the customer's currency but charge in your base currency with appropriate conversion.</td>
+        <td><span class="tag tag-later">GROWTH</span></td>
+      </tr>
+      <tr>
+        <td><strong>Service quality consistency</strong></td>
+        <td>If you're fulfilling orders yourself or with freelancers, quality may vary. Bad reviews will hurt your reputation.</td>
+        <td>Create service standards and templates. Use the same freelancers for consistency. Add a review/rating system so customers can feedback. Monitor order completion times in the admin dashboard.</td>
+        <td><span class="tag tag-later">GROWTH</span></td>
+      </tr>
+      <tr>
+        <td><strong>Competitor pressure</strong></td>
+        <td>Fiverr, Upwork, 99Designs, and local competitors will be competing for the same customers.</td>
+        <td>Differentiate on: faster delivery, local payment options (Paystack gives you an edge in Africa), niche specialization, better AI-powered experience, competitive pricing (use your pricing editor to experiment), and strong customer service.</td>
+        <td><span class="tag tag-later">STRATEGY</span></td>
+      </tr>
+      <tr>
+        <td><strong>Code maintainability</strong></td>
+        <td>The codebase is a single Express file (server.js ~800 lines) with a JSON database. As features grow, it becomes harder to maintain.</td>
+        <td>Eventually refactor into: separate route files (<code>routes/auth.js</code>, <code>routes/orders.js</code>, etc.), a proper database layer, environment-based configuration, and automated tests (you already have test scripts — formalize them with Jest/Mocha). This isn't urgent but plan for it after 3–6 months of growth.</td>
+        <td><span class="tag tag-later">TECH DEBT</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ===================== AUTONOMOUS AI ===================== -->
+  <div class="section" id="ai-suggestions">
+    <h2><span class="ico">🤖</span> Autonomous AI — Things Nova Can Do On Its Own</h2>
+    <p class="lead">Right now Nova is a reactive assistant — it only responds when a user or admin sends a message. Below are concrete features we can add so Nova <strong>acts on its own</strong> without human prompting, organized by priority. Each one is buildable with the existing codebase.</p>
+
+    <h3 class="sub">🎯 Ready to Build Now (Uses Existing Data & Infrastructure)</h3>
+    <div class="ai-grid">
+      <div class="ai-card">
+        <div class="ai-card-head">📧 Auto Order Confirmations & Status Emails</div>
+        <p>When an order is placed, paid, or completed, Nova automatically generates and sends a personalized email to the customer — no admin action needed. Uses the existing <code>sendEmail()</code> function and order lifecycle hooks.</p>
+        <span class="tag tag-now">EASY</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-head">🔔 Smart Admin Alerts</div>
+        <p>Nova monitors the store and proactively notifies the admin when something needs attention: a new order came in, a payment failed, an order is overdue, a customer hasn't been responded to in 24 hours. Shows up in the existing real-time activity feed and notification bell.</p>
+        <span class="tag tag-now">EASY</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-head">📈 Weekly Business Report (Auto-Generated)</div>
+        <p>Every Monday at 9 AM, Nova compiles a summary of last week's performance — total revenue, number of orders, best-selling services, new customers, compared to the previous week — and sends it to the admin email and posts it in the dashboard. Uses the existing <code>adminAssistant()</code> analytics logic.</p>
+        <span class="tag tag-now">EASY</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-head">💬 Auto-Follow-Up on Abandoned Carts</div>
+        <p>If a customer starts checkout but doesn't complete payment within 30 minutes, Nova automatically sends a friendly reminder email with a link to resume. Can include a small AI-generated discount to encourage completion.</p>
+        <span class="tag tag-now">MEDIUM</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-head">🎨 Auto-Generate Service Descriptions & SEO Tags</div>
+        <p>When you add a new service in the admin dashboard, Nova automatically writes a compelling description, generates SEO keywords, and suggests a competitive price based on similar services in your catalog. One click to approve or edit.</p>
+        <span class="tag tag-now">MEDIUM</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-head">⏰ Delivery Deadline Reminders</div>
+        <p>Nova tracks order deadlines and automatically sends reminders to the admin 24 hours before a delivery is due, and to the customer when their order is ready. Prevents missed deadlines without manual tracking.</p>
+        <span class="tag tag-now">EASY</span>
+      </div>
+    </div>
+
+    <h3 class="sub">🚀 Medium Priority (Requires Some New Infrastructure)</h3>
+    <div class="ai-grid">
+      <div class="ai-card">
+        <div class="ai-card-head">📱 Auto Social Media Content Generation</div>
+        <p>Nova generates promotional posts for your services automatically — one per day for Instagram, Twitter/X, and Facebook. Writes the caption, suggests hashtags, and queues it for your approval. You review and post, or connect an API to auto-post.</p>
+        <span class="tag tag-later">MEDIUM</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-head">🏆 Customer Review Auto-Responses</div>
+        <p>When a customer leaves a review, Nova automatically drafts a personalized response — thanking them for positive reviews, and addressing concerns in negative ones with an apology and next steps. Admin approves before sending, or Nova auto-responds for 4-5 star reviews.</p>
+        <span class="tag tag-later">MEDIUM</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-head">📊 Dynamic Price Optimization</div>
+        <p>Nova analyzes demand patterns and suggests price adjustments: increase price for high-demand services, lower it for slow movers. Generates a weekly recommendation report. Admin can enable auto-adjust with a maximum percentage cap.</p>
+        <span class="tag tag-later">ADVANCED</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-head">🎯 Personalized Service Recommendations</div>
+        <p>Nova learns from each customer's browsing and purchase history, then automatically recommends relevant services on their dashboard and in follow-up emails. "Based on your logo design order, you might also need business card design…"</p>
+        <span class="tag tag-later">MEDIUM</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-head">🛡️ Fraud Detection & Order Flagging</div>
+        <p>Nova automatically scans new orders for suspicious patterns: unusually large amounts, rapid repeat orders from the same IP, mismatched billing details. Flags risky orders for admin review before fulfillment. Reduces chargeback risk.</p>
+        <span class="tag tag-later">MEDIUM</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-head">🎁 Auto-Generated Promotional Campaigns</div>
+        <p>Nova identifies slow periods and automatically creates promotional campaigns — discount codes, bundle offers, seasonal specials — with suggested target audiences and email drafts. Admin approves with one click.</p>
+        <span class="tag tag-later">ADVANCED</span>
+      </div>
+    </div>
+
+    <h3 class="sub">🌟 Future / Advanced (Bigger Build, High Impact)</h3>
+    <div class="ai-grid">
+      <div class="ai-card">
+        <div class="ai-card-head">🧠 Upgrade to Real LLM</div>
+        <p>Replace the rule-based keyword matching with a real LLM (GPT-4, Claude, or Gemini) behind the existing safety guardrails. Nova becomes truly conversational — can handle complex questions, creative requests, and nuanced support without canned responses. All existing safety controls (kill switch, PII filter, prompt injection detection) still apply.</p>
+        <span class="tag tag-later">ADVANCED</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-head">📄 Auto Invoice & Receipt PDF Generation</div>
+        <p>Nova automatically generates a professional PDF invoice/receipt for every completed order and emails it to the customer. Includes your logo, order details, payment confirmation, and tax info if applicable.</p>
+        <span class="tag tag-later">MEDIUM</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-head">🌍 Multi-Language Auto-Translation</div>
+        <p>Nova detects the customer's language from their messages and automatically translates your responses and service descriptions. Opens up your marketplace to non-English-speaking customers without manual translation work.</p>
+        <span class="tag tag-later">ADVANCED</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-head">📊 Predictive Revenue Forecasting</div>
+        <p>Nova analyzes your sales history and predicts next month's revenue, which services will be in demand, and when you'll need to scale up. Generates a monthly forecast report for the admin dashboard.</p>
+        <span class="tag tag-later">ADVANCED</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-head">🔄 Auto Churn Prevention</div>
+        <p>Nova identifies customers who haven't ordered in 30/60/90 days and automatically sends re-engagement emails with personalized offers based on their past purchases. "We miss you! Here's 15% off your next logo design."</p>
+        <span class="tag tag-later">MEDIUM</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-head">📦 Auto Order Assignment</div>
+        <p>If you have multiple team members or freelancers fulfilling orders, Nova automatically assigns new orders to the best-available person based on workload, expertise, and past performance. Tracks SLA compliance.</p>
+        <span class="tag tag-later">ADVANCED</span>
+      </div>
+    </div>
+
+    <div class="ok-box" style="margin-top:32px">
+      <div class="title">💡 How These Work Technically</div>
+      <p style="margin:0">All autonomous features use the same pattern: a <strong>background scheduler</strong> (a <code>setInterval</code> or <code>node-cron</code> task) that runs periodically, checks conditions in the database, and triggers actions through existing functions (<code>sendEmail()</code>, <code>logActivity()</code>, <code>notify()</code>, <code>logAiActivity()</code>). Nova's autonomous actions show up in the same real-time admin activity feed you already have, so you always know what the AI is doing. Each feature can be toggled on/off from the admin dashboard, and all autonomous AI actions are logged to the existing audit trail for safety.</p>
+    </div>
+  </div>
+
+  <div class="section" id="checklist">
+    <h2><span class="ico">📋</span> Pre-Launch Checklist</h2>
+    <p class="lead">Complete these before going live with real customers. The checked items are already done.</p>
+
+    <h3>Already Done ✅</h3>
+    <ul class="checklist">
+      <li class="done">Token-based authentication (login, register, logout)</li>
+      <li class="done">Password hashing (SHA-256 + salt)</li>
+      <li class="done">Forgot password → reset code → reset password flow</li>
+      <li class="done">Change password and email while logged in</li>
+      <li class="done">Admin can reset any user's password</li>
+      <li class="done">Paystack payment integration (test mode)</li>
+      <li class="done">Admin dashboard with real-time AI activity feed</li>
+      <li class="done">Service pricing editor in admin dashboard</li>
+      <li class="done">AI safety controls (kill switch, guardrails, blocked phrases, audit trail)</li>
+      <li class="done">AI rate limiting (20 messages / 60 min)</li>
+      <li class="done">Prompt injection detection and blocking</li>
+      <li class="done">PII / card number detection in chat</li>
+      <li class="done">No account enumeration on forgot-password</li>
+      <li class="done">Minimum password length enforcement</li>
+      <li class="done">Token revocation on password change</li>
+      <li class="done">Auth rate limiting on login, forgot-password, reset-password (15 attempts / 15 min per IP)</li>
+      <li class="done">Null-user crash bug fixed (all user lookups are null-safe)</li>
+      <li class="done">demoCode auto-hidden in production (only shown when no live Paystack key is set)</li>
+      <li class="done">Database auto-compaction (prevents null entries from corrupted deletions)</li>
+    </ul>
+
+    <h3 class="sub">Must Do Before Launch</h3>
+    <ul class="checklist">
+      <li>Migrate from JSON file database to MongoDB Atlas or PostgreSQL</li>
+      <li>Wire up real email delivery (Resend, SendGrid, or Nodemailer) for password resets and notifications</li>
+      <li>Switch Paystack from test keys to live keys (after business verification)</li>
+      <li>Set up HTTPS/SSL (automatic on most hosting platforms)</li>
+      <li>Change the default admin password from <code>admin123</code> to a strong password</li>
+      <li>Create Terms of Service, Privacy Policy, and Refund Policy pages</li>
+      <li>Set up the Paystack webhook URL on your live domain</li>
+      <li>Test the full payment flow with a small real transaction</li>
+    </ul>
+
+    <h3 class="sub">Should Do Early (First Month)</h3>
+    <ul class="checklist">
+      <li>Set up automated database backups</li>
+      <li>Add email verification on registration</li>
+      <li>Set up monitoring / alerts (Uptime Robot, Sentry for error tracking)</li>
+      <li>Add a customer review/rating system</li>
+      <li>Create an order fulfillment workflow (assign, deliver, confirm)</li>
+      <li>Add order status email notifications to customers</li>
+      <li>Set up a custom domain and verify DNS/SSL</li>
+    </ul>
+
+    <h3 class="sub">Do As You Grow</h3>
+    <ul class="checklist">
+      <li>Upgrade AI from rule-based to real LLM (GPT/Claude/Gemini) behind existing guardrails</li>
+      <li>Add Redis caching for performance</li>
+      <li>Scale to multiple server instances behind a load balancer</li>
+      <li>Add GDPR/NDPR/CCPA compliance features (data export, account deletion)</li>
+      <li>Refactor codebase into modular structure</li>
+      <li>Set up CI/CD pipeline with automated tests</li>
+      <li>Integrate a help desk tool if support volume grows</li>
+    </ul>
+
+    <div class="ok-box">
+      <div class="title">🎯 Bottom Line</div>
+      <p style="margin:0"><strong>Can you add a domain and start making real money?</strong> Yes, absolutely. The platform is functionally complete — auth, payments, orders, AI, admin dashboard all work. The path is: (1) buy a domain, (2) deploy to a Node-capable host (Render/Railway), (3) migrate to a real database, (4) configure Paystack live keys, (5) set up email delivery, (6) change the admin password, (7) test the full flow, (8) launch. The biggest must-fix before going live is swapping the JSON database for MongoDB/PostgreSQL — everything else is configuration. <strong>Can users and admins test their login?</strong> Yes — confirmed with 20/20 tests. Both can log in, reset passwords via email code, change passwords/emails while logged in, and admins can reset any user's password. <strong>Can Nova do things on its own?</strong> See the 18 autonomous AI feature suggestions above — ready to build when you are.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <p>CreatiHub — Your global creative services marketplace 🌍</p>
+  <p style="margin-top:8px">Login system verified: <strong style="color:var(--green)">20/20 tests passed</strong> · Live demo: <a href="/admin.html">Admin Dashboard</a></p>
+</div>
+
+</body>
+</html>

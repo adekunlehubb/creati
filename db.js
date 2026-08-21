@@ -1,0 +1,756 @@
+// ============================================================
+// CreatiHub - JSON File Database Layer
+// ============================================================
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+
+const DATA_DIR = path.join(__dirname, 'data');
+const DB_FILE = path.join(DATA_DIR, 'db.json');
+
+function uid(prefix) {
+  return prefix + '_' + crypto.randomBytes(6).toString('hex');
+}
+
+function hashPassword(pw) {
+  return crypto.createHash('sha256').update(pw + 'creatihub_salt').digest('hex');
+}
+
+function makeToken() {
+  return crypto.randomBytes(24).toString('hex');
+}
+
+// ---------------- Seed Data ----------------
+const seedServices = [
+  {
+    id: 'flyer-design',
+    name: 'Flyer & Poster Design',
+    category: 'Graphic Design',
+    icon: '🎨',
+    tagline: 'Eye-catching flyers, posters & social graphics that convert',
+    description: 'Professional print-ready and digital flyers for events, promotions, product launches and social media. Delivered in high resolution (PDF, PNG, JPG) with source files.',
+    image: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=800&q=80',
+    deliveryDays: 2,
+    rating: 4.9,
+    orders: 1240,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 15, desc: '1 flyer design, 1 revision, JPG/PNG delivery', features: ['1 design concept', '1 revision round', 'High-res JPG & PNG', '48h delivery'] },
+      { id: 'standard', name: 'Standard', price: 35, desc: '2 concepts, 3 revisions, print-ready PDF', features: ['2 design concepts', '3 revision rounds', 'Print-ready PDF + JPG/PNG', 'Social media sizes', '24h delivery'] },
+      { id: 'premium', name: 'Premium', price: 75, desc: '3 concepts, unlimited revisions, source files', features: ['3 design concepts', 'Unlimited revisions', 'Source files (PSD/AI)', 'Print + digital pack', 'Priority 12h delivery'] }
+    ]
+  },
+  {
+    id: 'automated-video',
+    name: 'Automated Video Creation',
+    category: 'Video & Animation',
+    icon: '🎬',
+    tagline: 'AI-powered promo videos, reels & ads generated fast',
+    description: 'Automated video production for product promos, social media reels, YouTube intros and ads. AI-assisted scripting, voiceover, stock footage and editing — delivered in any aspect ratio.',
+    image: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=800&q=80',
+    deliveryDays: 3,
+    rating: 4.8,
+    orders: 980,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 29, desc: '15-30s video, AI voiceover, 1 revision', features: ['Up to 30 seconds', 'AI voiceover (40+ languages)', 'Stock footage & music', '1 revision', '720p HD'] },
+      { id: 'standard', name: 'Standard', price: 69, desc: '60s video, captions, 2 revisions, 1080p', features: ['Up to 60 seconds', 'AI or human voiceover', 'Animated captions', '2 revisions', '1080p Full HD', '3 aspect ratios'] },
+      { id: 'premium', name: 'Premium', price: 149, desc: '2min video, custom script, 4K, unlimited revisions', features: ['Up to 2 minutes', 'Custom scriptwriting', 'Premium voiceover', 'Unlimited revisions', '4K Ultra HD', 'All aspect ratios + thumbnails'] }
+    ]
+  },
+  {
+    id: 'cartoon-maker',
+    name: 'Cartoon & Avatar Maker',
+    category: 'Illustration',
+    icon: '🦸',
+    tagline: 'Custom cartoon portraits, avatars & mascots',
+    description: 'Turn photos into stunning cartoon portraits, create brand mascots, or design unique avatars for social media, gaming and business. Multiple art styles available.',
+    image: 'https://images.unsplash.com/photo-1613376023733-0a73315d9b06?w=800&q=80',
+    deliveryDays: 2,
+    rating: 4.9,
+    orders: 1560,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 12, desc: '1 cartoon portrait, headshot, 1 revision', features: ['1 person/character', 'Head & shoulders', '1 art style', '1 revision', 'PNG with background'] },
+      { id: 'standard', name: 'Standard', price: 30, desc: 'Full body, custom background, 3 revisions', features: ['1-2 persons/characters', 'Full body', 'Custom background', 'Choice of 3 art styles', '3 revisions', 'Transparent PNG'] },
+      { id: 'premium', name: 'Premium', price: 65, desc: 'Mascot/family pack, commercial license', features: ['Up to 5 characters or brand mascot', 'Multiple poses/expressions', 'Commercial license', 'Unlimited revisions', 'Source vector files'] }
+    ]
+  },
+  {
+    id: 'logo-design',
+    name: 'Logo & Brand Identity',
+    category: 'Graphic Design',
+    icon: '⚡',
+    tagline: 'Memorable logos and complete brand kits',
+    description: 'Professional logo design with full brand identity: color palette, typography, business cards and brand guidelines. Built to make your business unforgettable.',
+    image: 'https://images.unsplash.com/photo-1626785774573-4b799315345d?w=800&q=80',
+    deliveryDays: 3,
+    rating: 4.8,
+    orders: 870,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 25, desc: '1 logo concept, PNG files', features: ['1 logo concept', '2 revisions', 'PNG & JPG files', 'Favicon'] },
+      { id: 'standard', name: 'Standard', price: 59, desc: '3 concepts, vector files, social kit', features: ['3 logo concepts', '4 revisions', 'Vector files (SVG, EPS)', 'Social media kit', 'Business card design'] },
+      { id: 'premium', name: 'Premium', price: 129, desc: 'Full brand identity package', features: ['5 logo concepts', 'Unlimited revisions', 'Complete brand guidelines', 'Stationery pack', 'Social media kit', 'Source files'] }
+    ]
+  },
+  {
+    id: 'social-media-kit',
+    name: 'Social Media Design Kit',
+    category: 'Graphic Design',
+    icon: '📱',
+    tagline: '30 days of scroll-stopping social content',
+    description: 'Complete monthly content packs: posts, stories, covers and banners designed for Instagram, Facebook, TikTok, X and LinkedIn — matched to your brand.',
+    image: 'https://images.unsplash.com/photo-1611926653458-09294b3142bf?w=800&q=80',
+    deliveryDays: 4,
+    rating: 4.7,
+    orders: 640,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 39, desc: '10 posts for 1 platform', features: ['10 post designs', '1 platform', '2 revisions', 'Branded templates'] },
+      { id: 'standard', name: 'Standard', price: 89, desc: '20 posts + stories, 3 platforms', features: ['20 posts + 10 stories', '3 platforms', '4 revisions', 'Highlight covers', 'Content calendar'] },
+      { id: 'premium', name: 'Premium', price: 179, desc: 'Full month, all platforms, animated', features: ['30 posts + 20 stories', 'All platforms', 'Animated posts', 'Unlimited revisions', 'Content calendar + captions'] }
+    ]
+  },
+  {
+    id: 'voiceover',
+    name: 'AI & Pro Voiceover',
+    category: 'Audio',
+    icon: '🎙️',
+    tagline: 'Studio-quality voiceovers in 40+ languages',
+    description: 'Crystal-clear voiceovers for videos, ads, podcasts, IVR and audiobooks. Choose AI voices for speed or professional human artists for emotion.',
+    image: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=800&q=80',
+    deliveryDays: 1,
+    rating: 4.8,
+    orders: 720,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 10, desc: 'AI voice, up to 150 words', features: ['AI voice (40+ languages)', 'Up to 150 words', 'MP3 & WAV', '24h delivery'] },
+      { id: 'standard', name: 'Standard', price: 35, desc: 'Pro human voice, 300 words', features: ['Professional human artist', 'Up to 300 words', '2 revisions', 'Broadcast quality', 'Commercial rights'] },
+      { id: 'premium', name: 'Premium', price: 89, desc: 'Long-form, directed session', features: ['Up to 1500 words', 'Directed recording session', 'Unlimited revisions', 'Full buyout rights', 'Audio mastering'] }
+    ]
+  },
+  {
+    id: 'website-design',
+    name: 'Website & Landing Pages',
+    category: 'Web & Tech',
+    icon: '💻',
+    tagline: 'Modern, fast, mobile-first websites that sell',
+    description: 'Conversion-focused landing pages and business websites. Responsive design, SEO-ready, with contact forms, analytics and deployment included.',
+    image: 'https://images.unsplash.com/photo-1547658719-da2b51169166?w=800&q=80',
+    deliveryDays: 5,
+    rating: 4.9,
+    orders: 430,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 99, desc: '1-page landing site', features: ['1-page responsive site', 'Contact form', 'Mobile optimized', '2 revisions', 'Deployed live'] },
+      { id: 'standard', name: 'Standard', price: 249, desc: 'Up to 5 pages, SEO setup', features: ['Up to 5 pages', 'SEO optimization', 'Blog/gallery section', 'Analytics setup', '4 revisions'] },
+      { id: 'premium', name: 'Premium', price: 599, desc: 'Full site + store/booking', features: ['Up to 12 pages', 'E-commerce or booking', 'CMS included', 'Speed optimization', 'Unlimited revisions', '30 days support'] }
+    ]
+  },
+  {
+    id: 'seo-copywriting',
+    name: 'SEO Content & Copywriting',
+    category: 'Writing',
+    icon: '✍️',
+    tagline: 'Words that rank on Google and convert readers',
+    description: 'SEO-optimized blog posts, website copy, product descriptions and ad copy. Researched, original and written to rank and sell.',
+    image: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?w=800&q=80',
+    deliveryDays: 2,
+    rating: 4.7,
+    orders: 890,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 20, desc: '500-word article', features: ['500 words', 'Keyword research', '1 revision', 'Plagiarism-free'] },
+      { id: 'standard', name: 'Standard', price: 49, desc: '1500 words + meta + images', features: ['1500 words', 'Full SEO optimization', 'Meta tags', '2 revisions', 'Royalty-free images'] },
+      { id: 'premium', name: 'Premium', price: 119, desc: '4-article content pack', features: ['4 x 1200-word articles', 'Content strategy', 'Internal linking plan', 'Unlimited revisions', 'Publishing-ready'] }
+    ]
+  },
+  {
+    id: 'ai-chatbot',
+    name: 'AI Chatbot Setup',
+    category: 'Web & Tech',
+    icon: '🤖',
+    tagline: 'Smart chatbots for your website or WhatsApp',
+    description: 'Custom AI chatbots trained on your business data. Answer customer questions 24/7, capture leads and automate bookings on your website, WhatsApp or Messenger.',
+    image: 'https://images.unsplash.com/photo-1531746790731-6c087fecd65a?w=800&q=80',
+    deliveryDays: 4,
+    rating: 4.8,
+    orders: 310,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 79, desc: 'Website FAQ bot', features: ['Trained on your FAQs', 'Website widget', 'Lead capture', '1 revision'] },
+      { id: 'standard', name: 'Standard', price: 199, desc: 'Multi-channel + bookings', features: ['Website + WhatsApp', 'Booking automation', 'Custom personality', 'Analytics dashboard', '3 revisions'] },
+      { id: 'premium', name: 'Premium', price: 449, desc: 'Full automation suite', features: ['All channels', 'CRM integration', 'Payment collection', 'Human handoff', 'Unlimited revisions', '60 days support'] }
+    ]
+  },
+  {
+    id: 'product-photography',
+    name: 'AI Product Photography',
+    category: 'Photography',
+    icon: '📸',
+    tagline: 'Studio-quality product shoots from a single photo',
+    description: 'Turn one plain product photo into unlimited lifestyle scenes, studio shots and ad creatives. AI-generated backgrounds, lighting and shadows — no physical shoot needed. Perfect for e-commerce, Amazon, Shopify and ads.',
+    image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80',
+    deliveryDays: 1,
+    rating: 4.9,
+    orders: 1120,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 19, desc: '5 AI scenes from 1 photo', features: ['5 unique scenes', '1 product', 'HD JPG/PNG', '24h delivery'] },
+      { id: 'standard', name: 'Standard', price: 49, desc: '20 scenes + white background pack', features: ['20 unique scenes', 'Up to 3 products', 'White/transparent pack', '2 revisions', '4K resolution'] },
+      { id: 'premium', name: 'Premium', price: 119, desc: 'Unlimited scenes + ad creatives', features: ['Unlimited scenes', 'Up to 10 products', 'Ad-ready creatives', 'Lifestyle & infographic set', 'Unlimited revisions', 'Priority 12h delivery'] }
+    ]
+  },
+  {
+    id: 'music-jingles',
+    name: 'AI Music & Jingles',
+    category: 'Audio',
+    icon: '🎵',
+    tagline: 'Custom brand jingles & background tracks',
+    description: 'Original, royalty-free music and catchy brand jingles generated with AI and polished by producers. Ideal for ads, videos, podcasts, apps and on-hold audio. Full commercial license included.',
+    image: 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=800&q=80',
+    deliveryDays: 2,
+    rating: 4.8,
+    orders: 540,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 25, desc: '30s background track', features: ['Up to 30 seconds', '1 genre/mood', 'MP3 & WAV', 'Commercial license'] },
+      { id: 'standard', name: 'Standard', price: 69, desc: 'Custom brand jingle + loop', features: ['Custom jingle (30-60s)', 'Vocals or instrumental', 'Loopable version', '2 revisions', 'Full buyout rights'] },
+      { id: 'premium', name: 'Premium', price: 159, desc: 'Full brand audio identity', features: ['Jingle + 3 variations', 'Sonic logo / audio mnemonic', 'Stems & source files', 'Unlimited revisions', 'Broadcast rights'] }
+    ]
+  },
+  {
+    id: 'pitch-deck',
+    name: 'Pitch Deck & Presentation Design',
+    category: 'Business',
+    icon: '📊',
+    tagline: 'Investor decks & slides that win funding',
+    description: 'Persuasive pitch decks, sales presentations and corporate slides designed to impress investors and clients. Story structure, data visualization and on-brand design — delivered as editable PowerPoint, Keynote or Google Slides.',
+    image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&q=80',
+    deliveryDays: 3,
+    rating: 4.9,
+    orders: 460,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 99, desc: 'Up to 10 slides, template-based', features: ['Up to 10 slides', 'Professional template', '1 revision', 'Editable PPTX', '3-day delivery'] },
+      { id: 'standard', name: 'Standard', price: 249, desc: 'Up to 20 slides, custom design', features: ['Up to 20 slides', 'Fully custom design', 'Charts & infographics', '3 revisions', 'PPTX + PDF'] },
+      { id: 'premium', name: 'Premium', price: 499, desc: 'Full investor deck + copywriting', features: ['Up to 35 slides', 'Investor-ready narrative', 'Copywriting included', 'Financial chart design', 'Unlimited revisions', 'Priority 48h delivery'] }
+    ]
+  },
+  {
+    id: 'pro-headshots',
+    name: 'AI Professional Headshots',
+    category: 'Photography',
+    icon: '🤳',
+    tagline: 'Corporate headshots generated from your selfies',
+    description: 'Get dozens of studio-quality professional headshots from a few casual selfies. Choose backgrounds, attire and styles — perfect for LinkedIn, company websites, resumes and team pages. No photographer needed.',
+    image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=800&q=80',
+    deliveryDays: 1,
+    rating: 4.8,
+    orders: 1890,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 29, desc: '20 headshots, 5 styles', features: ['20 AI headshots', '5 outfit/background styles', 'HD resolution', '24h delivery'] },
+      { id: 'standard', name: 'Standard', price: 59, desc: '60 headshots, 12 styles', features: ['60 AI headshots', '12 styles', '4K resolution', 'LinkedIn-optimized crops', '2 touch-up revisions'] },
+      { id: 'premium', name: 'Premium', price: 129, desc: 'Team pack (up to 5 people)', features: ['Up to 5 team members', '40 headshots each', 'Consistent brand backdrop', 'Unlimited touch-ups', 'Priority 12h delivery'] }
+    ]
+  },
+  {
+    id: 'youtube-thumbnails',
+    name: 'YouTube Thumbnail Pack',
+    category: 'Graphic Design',
+    icon: '🎬',
+    tagline: 'CTR-optimized thumbnails that get the click',
+    description: 'Scroll-stopping YouTube thumbnails engineered for maximum click-through rate. Bold text, expressive faces and proven layouts — delivered in monthly packs for consistent channel growth.',
+    image: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=800&q=80',
+    deliveryDays: 1,
+    rating: 4.9,
+    orders: 2130,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 15, desc: '3 thumbnails', features: ['3 thumbnails', '1 revision each', '1280x720 HD', '24h delivery'] },
+      { id: 'standard', name: 'Standard', price: 49, desc: '12 thumbnails (weekly pack)', features: ['12 thumbnails', 'A/B test variants', 'Unlimited revisions', 'PSD source files'] },
+      { id: 'premium', name: 'Premium', price: 149, desc: '30 thumbnails (monthly)', features: ['30 thumbnails / month', 'Channel style guide', 'A/B variants', 'Priority same-day delivery', 'Unlimited revisions'] }
+    ]
+  },
+  {
+    id: 'merch-tshirt',
+    name: 'Merch & T-Shirt Design',
+    category: 'Graphic Design',
+    icon: '👕',
+    tagline: 'Print-on-demand ready artwork that sells',
+    description: 'Original t-shirt, hoodie and merch designs delivered print-ready for Printful, Printify, Merch by Amazon and Redbubble. Trending niches, bold typography and vector artwork with full commercial rights.',
+    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80',
+    deliveryDays: 2,
+    rating: 4.8,
+    orders: 1340,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 19, desc: '1 design, print-ready PNG', features: ['1 custom design', '4500x5400px PNG', 'Transparent background', '1 revision'] },
+      { id: 'standard', name: 'Standard', price: 49, desc: '3 designs + mockups', features: ['3 custom designs', 'Vector source files', 'Product mockups', '3 revisions', 'Commercial license'] },
+      { id: 'premium', name: 'Premium', price: 119, desc: '10-design merch collection', features: ['10 cohesive designs', 'Full vector pack', 'Mockups for all products', 'Unlimited revisions', 'Full commercial rights'] }
+    ]
+  },
+  {
+    id: 'book-cover',
+    name: 'Book Cover & E-book Design',
+    category: 'Publishing',
+    icon: '📖',
+    tagline: 'Covers that sell your book at first glance',
+    description: 'Bestselling-quality book covers for print and e-book, plus full interior formatting for Kindle, paperback and hardcover. Genre-specific design that grabs readers on Amazon, KDP and bookstores.',
+    image: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800&q=80',
+    deliveryDays: 3,
+    rating: 4.9,
+    orders: 670,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 39, desc: 'E-book cover (front only)', features: ['Front cover design', 'Kindle/EPUB ready', '2 concepts', '2 revisions'] },
+      { id: 'standard', name: 'Standard', price: 99, desc: 'Full print cover + e-book', features: ['Front, spine & back', 'Print-ready PDF', 'E-book version', '3D mockups', '4 revisions'] },
+      { id: 'premium', name: 'Premium', price: 199, desc: 'Cover + interior formatting', features: ['Full cover package', 'Interior layout & formatting', 'Kindle + paperback + hardcover', 'Marketing graphics', 'Unlimited revisions'] }
+    ]
+  },
+  {
+    id: 'translation',
+    name: 'AI Translation & Localization',
+    category: 'Writing',
+    icon: '🌍',
+    tagline: 'Documents, sites & subtitles in 40+ languages',
+    description: 'Fast, accurate AI translation with human review for documents, websites, apps, subtitles and marketing copy. Native-quality localization that preserves tone, formatting and cultural nuance across 40+ languages.',
+    image: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&q=80',
+    deliveryDays: 1,
+    rating: 4.8,
+    orders: 910,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 15, desc: 'Up to 500 words, 1 language', features: ['500 words', '1 target language', 'AI + human review', '24h delivery'] },
+      { id: 'standard', name: 'Standard', price: 49, desc: 'Up to 2000 words, 3 languages', features: ['2000 words', '3 target languages', 'Formatting preserved', '2 revisions', 'Glossary consistency'] },
+      { id: 'premium', name: 'Premium', price: 129, desc: 'Website/subtitle localization', features: ['Full website or video subtitles', 'Up to 5 languages', 'Cultural localization', 'SRT/VTT or HTML delivery', 'Unlimited revisions'] }
+    ]
+  },
+  {
+    id: 'email-campaign',
+    name: 'Email Campaign Design',
+    category: 'Marketing',
+    icon: '📧',
+    tagline: 'Branded newsletters + copy that convert',
+    description: 'Beautiful, mobile-responsive email campaigns with persuasive copywriting. Designed for Mailchimp, Klaviyo, ConvertKit and all major platforms — built to grow opens, clicks and sales on autopilot.',
+    image: 'https://images.unsplash.com/photo-1596526131083-e8c633c948d2?w=800&q=80',
+    deliveryDays: 2,
+    rating: 4.7,
+    orders: 580,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 29, desc: '1 email template + copy', features: ['1 branded template', 'Copywriting included', 'Mobile responsive', '1 revision'] },
+      { id: 'standard', name: 'Standard', price: 79, desc: '4-email campaign sequence', features: ['4-email sequence', 'Copy + design', 'Platform-ready HTML', 'A/B subject lines', '3 revisions'] },
+      { id: 'premium', name: 'Premium', price: 179, desc: 'Monthly campaign pack (8 emails)', features: ['8 emails / month', 'Full automation flow', 'Segmentation strategy', 'Unlimited revisions', 'Performance report'] }
+    ]
+  },
+  {
+    id: 'virtual-staging',
+    name: 'Virtual Staging & Interior Concepts',
+    category: 'Real Estate',
+    icon: '🏠',
+    tagline: 'Stage empty rooms into dream spaces',
+    description: 'Photorealistic virtual staging for real estate listings and interior design concepts. Transform empty or outdated rooms into beautifully furnished spaces that sell properties faster and for more.',
+    image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80',
+    deliveryDays: 2,
+    rating: 4.9,
+    orders: 760,
+    packages: [
+      { id: 'basic', name: 'Basic', price: 50, desc: '1 staged photo', features: ['1 room staged', '1 design style', 'HD resolution', '48h delivery'] },
+      { id: 'standard', name: 'Standard', price: 199, desc: '5 staged photos', features: ['5 rooms staged', 'Choice of 3 styles', '4K resolution', '2 revisions', 'MLS-ready'] },
+      { id: 'premium', name: 'Premium', price: 449, desc: 'Full property (12 photos)', features: ['12 photos staged', 'Unlimited styles', 'Declutter + renovation preview', 'Unlimited revisions', 'Priority 24h delivery'] }
+    ]
+  }
+];
+
+const seedUsers = [
+  { id: 'u_admin', name: 'Admin', email: 'admin@creatihub.com', password: hashPassword('admin123'), role: 'admin', country: 'US', currency: 'USD', createdAt: new Date().toISOString() },
+  { id: 'u_demo', name: 'Demo User', email: 'demo@creatihub.com', password: hashPassword('demo123'), role: 'user', country: 'GB', currency: 'GBP', createdAt: new Date().toISOString() }
+];
+
+const seedOrders = [
+  {
+    id: 'CH-1042', userId: 'u_demo', userName: 'Demo User', userEmail: 'demo@creatihub.com',
+    serviceId: 'flyer-design', serviceName: 'Flyer & Poster Design', packageId: 'standard', packageName: 'Standard',
+    price: 35, currency: 'USD', status: 'in_progress',
+    requirements: 'Grand opening flyer for a coffee shop. Warm colors, include logo and QR code.',
+    paymentMethod: 'paystack', paymentStatus: 'paid', paymentReference: 'CHSEED1042A',
+    paymentChannel: 'card', paidAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+    timeline: [
+      { status: 'pending', at: new Date(Date.now() - 86400000 * 2).toISOString(), note: 'Payment confirmed via Paystack (card)' },
+      { status: 'in_progress', at: new Date(Date.now() - 86400000).toISOString(), note: 'Designer assigned, work started' }
+    ]
+  },
+  {
+    id: 'CH-1041', userId: 'u_demo', userName: 'Demo User', userEmail: 'demo@creatihub.com',
+    serviceId: 'cartoon-maker', serviceName: 'Cartoon & Avatar Maker', packageId: 'basic', packageName: 'Basic',
+    price: 12, currency: 'USD', status: 'completed',
+    requirements: 'Cartoon avatar of myself for YouTube channel profile picture.',
+    paymentMethod: 'paystack', paymentStatus: 'paid', paymentReference: 'CHSEED1041A',
+    paymentChannel: 'card', paidAt: new Date(Date.now() - 86400000 * 6).toISOString(),
+    createdAt: new Date(Date.now() - 86400000 * 6).toISOString(),
+    timeline: [
+      { status: 'pending', at: new Date(Date.now() - 86400000 * 6).toISOString(), note: 'Payment confirmed via Paystack (card)' },
+      { status: 'in_progress', at: new Date(Date.now() - 86400000 * 5).toISOString(), note: 'Artist assigned' },
+      { status: 'completed', at: new Date(Date.now() - 86400000 * 4).toISOString(), note: 'Final files delivered' }
+    ]
+  }
+];
+
+// ---------------- DB Core ----------------
+let db = null;
+
+function defaultSettings() {
+  return {
+    adminEmail: 'admin@creatihub.com',       // where notification emails are sent
+    notifyEmail: true,                        // send email on new order / support msg
+    notifyInApp: true,                        // in-app bell notifications
+    payout: {
+      method: 'bank',                         // bank | paypal | payoneer | wise | crypto
+      bankName: '', accountName: '', accountNumber: '', routingNumber: '',
+      swift: '', iban: '', currency: 'USD', country: '',
+      paypalEmail: '', wiseEmail: '', payoneerEmail: '', cryptoWallet: ''
+    },
+    // ---- Checkout upsells (monetization) ----
+    // Rush delivery: optional surcharge to jump the queue + faster turnaround.
+    rushDelivery: {
+      enabled: true,
+      label: 'Rush delivery (12–24h)',
+      // Surcharge as a fraction of the selected package price (0.35 = +35%)
+      surchargeRate: 0.35,
+      // Flat minimum surcharge in USD (applied if rate*price < this)
+      minSurcharge: 5,
+      note: 'Get your order moved to the front of the queue with priority 12–24h turnaround.'
+    },
+    // Add-ons: optional extras the buyer can stack on any order.
+    addons: [
+      { id: 'extra-revision',  name: 'Extra revision round',     price: 10, desc: 'Add one more revision round beyond your package.' },
+      { id: 'source-files',    name: 'Source files',             price: 15, desc: 'Get editable PSD/AI/FIGMA source files for your design.' },
+      { id: 'commercial-use',  name: 'Commercial license',       price: 20, desc: 'Full commercial usage rights for resale & client work.' },
+      { id: 'social-resize',   name: 'Social media resize pack', price: 12, desc: 'Deliver your design sized for Instagram, Facebook, X & LinkedIn.' },
+      { id: 'extra-concept',   name: 'Extra design concept',     price: 18, desc: 'One additional unique design concept to choose from.' },
+      { id: 'expedited-files', name: 'Express file delivery',    price: 8,  desc: 'Receive final files via priority download link + WeTransfer backup.' }
+    ],
+    // Recurring monthly retainer plans. `price` is USD/month and is the
+    // AUTHORITATIVE source of truth — the server never trusts client prices.
+    subscriptionPlans: [
+      {
+        id: 'starter-retainer',
+        name: 'Starter Retainer',
+        interval: 'monthly',
+        price: 99,
+        tagline: 'Ongoing creative support for small businesses',
+        desc: 'Perfect for businesses that need a steady stream of designs. Includes priority turnaround and a dedicated project channel.',
+        features: [
+          'Up to 4 design requests / month',
+          'Flyers, social posts & basic graphics',
+          '48h turnaround per request',
+          '2 revisions per design',
+          'Dedicated project channel',
+          'Monthly strategy call'
+        ],
+        badge: 'Popular'
+      },
+      {
+        id: 'growth-retainer',
+        name: 'Growth Retainer',
+        interval: 'monthly',
+        price: 249,
+        tagline: 'Scale your content engine across every channel',
+        desc: 'For growing brands that need consistent multi-format content. Covers design, short video, and copywriting in one plan.',
+        features: [
+          'Up to 10 design + 2 video requests / month',
+          'All graphic, video & copy services',
+          '24h turnaround per request',
+          '3 revisions per deliverable',
+          'Source files included',
+          'Bi-weekly strategy call',
+          'Priority queue (rush by default)'
+        ],
+        badge: 'Best Value'
+      },
+      {
+        id: 'brand-partner',
+        name: 'Brand Partner',
+        interval: 'monthly',
+        price: 599,
+        tagline: 'Your on-demand creative department',
+        desc: 'A full outsourced creative team. Unlimited requests across all services with same-day priority and a dedicated creative director.',
+        features: [
+          'Unlimited design + video + web requests',
+          'All CreatiHub services included',
+          '12h priority turnaround',
+          'Unlimited revisions',
+          'Source files + commercial license',
+          'Dedicated creative director',
+          'Weekly strategy + reporting call',
+          'Quarterly brand refresh'
+        ],
+        badge: 'Premium'
+      }
+    ]
+  };
+}
+
+// Default AI safety / guardrail settings. The admin can tune these from the
+// "AI Safety" tab in the dashboard. When `enabled` is false, Nova stops
+// responding to user chat entirely (a kill switch).
+function defaultAiSettings() {
+  return {
+    enabled: true,                          // master on/off switch for Nova (user-facing)
+    adminAssistantEnabled: true,            // Nova admin analytics assistant
+    // Per-user rate limiting: max messages a single user/guest can send per window
+    rateLimit: { maxMessages: 20, windowMinutes: 60 },
+    // Blocklist: if a user message contains any of these (case-insensitive),
+    // Nova refuses and the attempt is logged in the AI audit trail.
+    blockedPhrases: [
+      'ignore previous instructions',
+      'ignore all previous',
+      'you are now',
+      'act as',
+      'system prompt',
+      'reveal your prompt',
+      'show me your instructions',
+      'jailbreak',
+      'dan mode',
+      'developer mode'
+    ],
+    // Topics Nova will politely decline to discuss (kept broad + safe by default)
+    blockedTopics: ['politics', 'religion', 'self-harm', 'violence', 'illegal', 'weapons', 'drugs'],
+    // Safety guardrails
+    guardrails: {
+      blockPromptInjection: true,           // scan for injection patterns above
+      blockPersonalData: true,              // never echo back card numbers / emails / passwords
+      maxMessageLength: 1000,               // hard cap on incoming message length
+      refuseOnBlock: true                   // refuse (vs silently ignore) when a rule trips
+    },
+    // Brand voice / persona constraints Nova should follow
+    persona: {
+      name: 'Nova',
+      tone: 'friendly, professional, concise',
+      scope: 'Only discuss CreatiHub services, pricing, orders and support. Do not give life advice, financial advice, or opinions on non-business topics.'
+    }
+  };
+}
+
+function migrate() {
+  backfill(db);
+  save();
+}
+
+// Run migration/backfill logic on an arbitrary db object WITHOUT saving.
+// Used by db-pg.js after hydrating from Postgres.
+function backfill(obj) {
+  const d = obj;
+  if (!d.notifications) d.notifications = [];
+  if (!d.activity) d.activity = [];
+  if (!d.emails) d.emails = [];
+  if (!d.settings) d.settings = defaultSettings();
+  // Backfill new monetization settings (rushDelivery + addons) onto older DBs
+  const defaults = defaultSettings();
+  if (!d.settings.rushDelivery) d.settings.rushDelivery = defaults.rushDelivery;
+  if (!Array.isArray(d.settings.addons) || d.settings.addons.length === 0) d.settings.addons = defaults.addons;
+  if (!Array.isArray(d.settings.subscriptionPlans) || d.settings.subscriptionPlans.length === 0) d.settings.subscriptionPlans = defaults.subscriptionPlans;
+  // New collections for subscriptions + backups
+  if (!d.subscriptions) d.subscriptions = [];     // active recurring billing subscriptions
+  if (!d.resetTokens) d.resetTokens = {};   // code -> { userId, expiresAt }
+  if (!d.aiActivity) d.aiActivity = [];      // live AI task feed
+  if (!d.aiAudit) d.aiAudit = [];            // AI safety audit trail (blocked / refused)
+  if (!d.aiSettings) d.aiSettings = defaultAiSettings();
+  if (!d.priceHistory) d.priceHistory = [];  // log of price changes made by admin
+  // Merge any new seed services that are missing (preserve existing/edited ones)
+  const existing = new Set(d.services.map(s => s.id));
+  seedServices.forEach(s => { if (!existing.has(s.id)) d.services.push(s); });
+  // Backfill Paystack payment fields on legacy orders (they were paid under the old demo checkout)
+  d.orders.forEach(o => {
+    if (!o.paymentStatus) o.paymentStatus = 'paid';
+    if (!o.paymentMethod) o.paymentMethod = 'paystack';
+  });
+}
+
+// Build a fresh seed db object (in-memory only, no disk write).
+// Used by db-pg.js to seed Postgres on first boot, and by load() for fresh installs.
+function makeFreshDb() {
+  return {
+    users: seedUsers,
+    services: seedServices,
+    orders: seedOrders,
+    subscriptions: [],  // active recurring billing subscriptions {id, userId, planId, planCode, reference, status, startedAt, currentPeriodEnd, cancelledAt}
+    chats: [],       // {id, userId, role:'user'|'assistant', message, at}
+    adminChats: [],  // admin AI conversation
+    tokens: {},      // token -> userId
+    resetTokens: {}, // code -> { userId, expiresAt }
+    orderCounter: 1043,
+    notifications: [], // {id, type, title, message, read, at}
+    activity: [],      // {id, kind, label, detail, at}
+    emails: [],        // {id, to, subject, body, at, status}
+    aiActivity: [],    // {id, type, actor, action, detail, at}  -- live AI task feed
+    aiAudit: [],       // {id, userId, message, reason, at}      -- AI safety audit trail
+    aiSettings: defaultAiSettings(),
+    priceHistory: [],  // {id, serviceId, serviceName, packageId, packageName, oldPrice, newPrice, by, at}
+    settings: defaultSettings()
+  };
+}
+
+// If DATABASE_URL is set, the Postgres backend (db-pg.js) takes over and this
+// JSON-file backend should NOT touch the filesystem. We still allow the module
+// to be required (for seed data reuse) without auto-loading.
+const USE_POSTGRES = !!process.env.DATABASE_URL;
+
+function load() {
+  if (USE_POSTGRES) {
+    // Postgres backend will manage hydration; return an empty shell so any
+    // accidental synchronous getDb() before async load() gives a clear shape.
+    // The real db-pg.js load() must be awaited in server.js first.
+    if (!db) db = makeFreshDb();
+    return db;
+  }
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (fs.existsSync(DB_FILE)) {
+    db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    migrate();
+  } else {
+    db = makeFreshDb();
+    save();
+  }
+  return db;
+}
+
+function save() {
+  // Postgres backend manages persistence; no-op here to avoid clobbering.
+  if (USE_POSTGRES) return;
+  // Compact arrays to remove any null/undefined entries that result from deletions.
+  // Without this, JSON.stringify serializes sparse-array holes as null, which
+  // later causes TypeError crashes when code iterates users/orders/etc.
+  if (db && Array.isArray(db.users)) db.users = db.users.filter(u => u && typeof u === 'object');
+  if (db && Array.isArray(db.orders)) db.orders = db.orders.filter(o => o && typeof o === 'object');
+  if (db && Array.isArray(db.services)) db.services = db.services.filter(s => s && typeof s === 'object');
+  if (db && Array.isArray(db.chats)) db.chats = db.chats.filter(c => c && typeof c === 'object');
+  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+}
+
+function getDb() {
+  if (!db) load();
+  return db;
+}
+
+// ---------------- Activity + Notification + Email helpers ----------------
+// Log a live activity/task event (shown in admin "Live Activity" feed)
+function logActivity(kind, label, detail) {
+  const d = getDb();
+  d.activity.unshift({ id: uid('a'), kind, label, detail: detail || '', at: new Date().toISOString() });
+  if (d.activity.length > 300) d.activity = d.activity.slice(0, 300);
+  save();
+}
+
+// Create an in-app admin notification (+ optional email)
+function notify(type, title, message) {
+  const d = getDb();
+  const n = { id: uid('n'), type, title, message, read: false, at: new Date().toISOString() };
+  d.notifications.unshift(n);
+  if (d.notifications.length > 200) d.notifications = d.notifications.slice(0, 200);
+
+  // Email notification (queued to outbox; wire SMTP/provider to actually send)
+  if (d.settings && d.settings.notifyEmail) {
+    sendEmail(d.settings.adminEmail, '[CreatiHub] ' + title, message);
+  }
+  save();
+  return n;
+}
+
+// Queue an email to the outbox. In production, connect SMTP / SendGrid / SES here.
+function sendEmail(to, subject, body) {
+  const d = getDb();
+  const mail = { id: uid('e'), to, subject, body, at: new Date().toISOString(), status: 'queued' };
+  d.emails.unshift(mail);
+  if (d.emails.length > 200) d.emails = d.emails.slice(0, 200);
+  save();
+  return mail;
+}
+
+// ---------------- AI Activity + Audit helpers ----------------
+// Log a live AI task so the admin can watch everything Nova does in real time.
+// type: 'support' | 'recommendation' | 'analytics' | 'order_help' | 'greeting' | 'faq' | 'blocked'
+// actor: who triggered it (user name / email / "admin" / "guest")
+// action: short verb phrase, e.g. "Recommended Flyer Design"
+// detail: longer description shown in the feed
+function logAiActivity(type, actor, action, detail) {
+  const d = getDb();
+  const entry = {
+    id: uid('ai'), type, actor: actor || 'guest',
+    action: action || 'AI action', detail: detail || '',
+    at: new Date().toISOString()
+  };
+  d.aiActivity.unshift(entry);
+  if (d.aiActivity.length > 500) d.aiActivity = d.aiActivity.slice(0, 500);
+  save();
+  return entry;
+}
+
+// Log a blocked / refused AI interaction to the safety audit trail.
+function aiAuditLog(userId, message, reason) {
+  const d = getDb();
+  const entry = {
+    id: uid('au'), userId: userId || 'guest',
+    message: String(message || '').slice(0, 300),
+    reason: reason || 'blocked', at: new Date().toISOString()
+  };
+  d.aiAudit.unshift(entry);
+  if (d.aiAudit.length > 300) d.aiAudit = d.aiAudit.slice(0, 300);
+  save();
+  return entry;
+}
+
+// Record a price change made by the admin (for the pricing history / audit).
+function logPriceChange(serviceId, serviceName, packageId, packageName, oldPrice, newPrice, by) {
+  const d = getDb();
+  const entry = {
+    id: uid('ph'), serviceId, serviceName, packageId, packageName,
+    oldPrice, newPrice, by: by || 'admin', at: new Date().toISOString()
+  };
+  d.priceHistory.unshift(entry);
+  if (d.priceHistory.length > 200) d.priceHistory = d.priceHistory.slice(0, 200);
+  save();
+  return entry;
+}
+
+// Mark a single notification read
+function markNotificationRead(id) {
+  const d = getDb();
+  const n = d.notifications.find(x => x.id === id);
+  if (n) { n.read = true; save(); }
+  return n;
+}
+
+// Mark all notifications read
+function markAllNotificationsRead() {
+  const d = getDb();
+  let changed = 0;
+  d.notifications.forEach(n => { if (!n.read) { n.read = true; changed++; } });
+  if (changed) save();
+  return changed;
+}
+
+// ---------------- Password reset helpers ----------------
+// Create a 6-digit reset code for a user (valid 15 minutes, single-use)
+function createResetCode(userId) {
+  const d = getDb();
+  // Invalidate any previous codes for this user
+  Object.keys(d.resetTokens).forEach(code => {
+    if (d.resetTokens[code].userId === userId) delete d.resetTokens[code];
+  });
+  const code = String(Math.floor(100000 + Math.random() * 900000)); // 6 digits
+  d.resetTokens[code] = { userId, expiresAt: Date.now() + 15 * 60 * 1000 };
+  save();
+  return code;
+}
+
+// Verify a reset code. Returns userId or null.
+function verifyResetCode(code) {
+  const d = getDb();
+  const entry = d.resetTokens[String(code || '').trim()];
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) { delete d.resetTokens[String(code).trim()]; save(); return null; }
+  return entry.userId;
+}
+
+// Consume (delete) a reset code after successful use
+function consumeResetCode(code) {
+  const d = getDb();
+  delete d.resetTokens[String(code || '').trim()];
+  save();
+}
+
+// Invalidate all login sessions for a user (used after any credential change)
+function revokeUserTokens(userId) {
+  const d = getDb();
+  Object.keys(d.tokens).forEach(t => { if (d.tokens[t] === userId) delete d.tokens[t]; });
+  save();
+}
+
+module.exports = { getDb, save, load, uid, hashPassword, makeToken, logActivity, notify, sendEmail, createResetCode, verifyResetCode, consumeResetCode, revokeUserTokens, logAiActivity, aiAuditLog, logPriceChange, markNotificationRead, markAllNotificationsRead, defaultAiSettings, makeFreshDb, backfill, USE_POSTGRES };

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Services — CreatiHub</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>">
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+<section class="section" style="padding-top:48px">
+  <div class="container">
+    <h2 class="section-title">Our <span class="grad-text">Services</span></h2>
+    <p class="section-sub">Professional creative services delivered worldwide. Filter by category or ask Nova for a recommendation.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:36px" id="catFilters"></div>
+    <div class="grid grid-3" id="svcGrid"><div class="empty">Loading services…</div></div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:8px" id="retainers">
+  <div class="container">
+    <h2 class="section-title">Monthly <span class="grad-text">Retainers</span></h2>
+    <p class="section-sub">Need ongoing creative work? Subscribe to a monthly retainer and get a dedicated creative team on demand. Cancel anytime.</p>
+    <div class="grid grid-3" id="planGrid"><div class="empty">Loading plans…</div></div>
+  </div>
+</section>
+
+<script src="/js/app.js"></script>
+<script>
+renderNav('services');
+renderFooter();
+initChatWidget();
+
+let allServices = [];
+let activeCat = 'All';
+
+function renderCards() {
+  const grid = document.getElementById('svcGrid');
+  const list = activeCat === 'All' ? allServices : allServices.filter(s => s.category === activeCat);
+  grid.innerHTML = list.map(s => `
+    <div class="svc-card">
+      <div class="thumb"><img src="${s.image}" alt="${esc(s.name)}" loading="lazy"><span class="cat">${esc(s.category)}</span></div>
+      <div class="svc-body">
+        <h3>${s.icon} ${esc(s.name)}</h3>
+        <p class="tag">${esc(s.description)}</p>
+        <div class="svc-meta">
+          <span class="price">from ${fmt(s.packages[0].price)}</span>
+          <span class="rating">★ ${s.rating} (${s.orders}+)</span>
+        </div>
+        <div style="color:var(--muted);font-size:.82rem;margin-top:8px">⏱️ ~${s.deliveryDays} day delivery</div>
+        <a href="/order?service=${s.id}" class="btn btn-primary btn-sm mt-2" style="width:100%">View Packages →</a>
+      </div>
+    </div>`).join('');
+}
+
+(async () => {
+  try {
+    const { services } = await API.get('/services?currency=' + getCurrency());
+    allServices = services;
+    const cats = ['All', ...new Set(services.map(s => s.category))];
+    const f = document.getElementById('catFilters');
+    f.innerHTML = cats.map(c => `<button class="btn btn-sm ${c === 'All' ? 'btn-primary' : 'btn-ghost'}" data-cat="${c}">${c}</button>`).join('');
+    f.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      activeCat = b.dataset.cat;
+      f.querySelectorAll('button').forEach(x => { x.className = 'btn btn-sm ' + (x.dataset.cat === activeCat ? 'btn-primary' : 'btn-ghost'); });
+      renderCards();
+    }));
+    renderCards();
+  } catch (e) {
+    document.getElementById('svcGrid').innerHTML = '<div class="empty">Could not load services. Please refresh.</div>';
+  }
+})();
+
+// ---------------- Subscription plans (monthly retainers) ----------------
+function renderPlans(plans) {
+  const grid = document.getElementById('planGrid');
+  if (!plans || !plans.length) { grid.innerHTML = '<div class="empty">No retainer plans available right now.</div>'; return; }
+  grid.innerHTML = plans.map(p => `
+    <div class="svc-card" style="display:flex;flex-direction:column;${p.badge ? 'border:2px solid var(--accent);' : ''}">
+      ${p.badge ? `<div style="position:absolute;top:12px;right:12px;background:var(--accent);color:#fff;font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:999px">${esc(p.badge)}</div>` : ''}
+      <div class="svc-body" style="flex:1;display:flex;flex-direction:column">
+        <h3>${esc(p.name)}</h3>
+        <p class="tag" style="font-weight:600;color:var(--text)">${esc(p.tagline)}</p>
+        <p class="tag" style="margin-top:6px">${esc(p.desc)}</p>
+        <div class="svc-meta" style="margin-top:12px">
+          <span class="price" style="font-size:1.6rem">${fmt(p.price)}<span style="font-size:.85rem;color:var(--muted)">/mo</span></span>
+        </div>
+        <ul style="list-style:none;padding:0;margin:14px 0 0;flex:1">
+          ${(p.features||[]).map(f => `<li style="padding:4px 0;color:var(--muted);font-size:.85rem">✓ ${esc(f)}</li>`).join('')}
+        </ul>
+        <button class="btn btn-primary btn-sm mt-2" style="width:100%" onclick="subscribePlan('${p.id}')">Subscribe Now →</button>
+      </div>
+    </div>`).join('');
+}
+
+async function subscribePlan(planId) {
+  const u = API.user();
+  if (!u) { window.location.href = '/auth?redirect=/services'; return; }
+  try {
+    const r = await API.post('/subscriptions', { planId });
+    const pay = r.payment;
+    if (pay.demo) {
+      alert('Demo mode: subscription created! In production, Paystack would open checkout here.');
+      window.location.href = pay.authorizationUrl;
+    } else if (pay.authorizationUrl) {
+      window.location.href = pay.authorizationUrl;
+    } else {
+      window.location.href = '/payment/callback?reference=' + pay.reference + '&subscription=1';
+    }
+  } catch (e) {
+    alert('Could not start subscription: ' + (e.message || 'Unknown error'));
+  }
+}
+
+(async () => {
+  try {
+    const cfg = await API.get('/config');
+    renderPlans(cfg.subscriptionPlans || []);
+  } catch (e) {
+    const g = document.getElementById('planGrid');
+    if (g) g.innerHTML = '<div class="empty">Could not load retainer plans.</div>';
+  }
+})();
+</script>
+</body>
+</html>

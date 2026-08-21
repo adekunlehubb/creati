@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Place Order — CreatiHub</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>">
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://js.paystack.co/v2/inline.js"></script>
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+<section class="section" style="padding-top:44px">
+  <div class="container" style="max-width:980px">
+    <div id="orderRoot"><div class="empty">Loading…</div></div>
+  </div>
+</section>
+
+<script src="/js/app.js"></script>
+<script>
+renderNav('services');
+renderFooter();
+initChatWidget();
+
+const params = new URLSearchParams(location.search);
+const serviceId = params.get('service');
+let service = null;
+let selectedPkg = null;
+let paystackCfg = { publicKey: '', demo: true };
+let upsellCfg = { rushDelivery: { enabled: false }, addons: [] };
+let selectedAddons = new Set();
+let rushOn = false;
+
+async function load() {
+  const root = document.getElementById('orderRoot');
+  if (!serviceId) { location.href = '/services'; return; }
+  try {
+    const [{ service: s }, cfg] = await Promise.all([
+      API.get('/services/' + serviceId + '?currency=' + getCurrency()),
+      API.get('/config').catch(() => ({ paystack: { publicKey: '', demo: true }, rushDelivery: { enabled: false }, addons: [] }))
+    ]);
+    service = s;
+    paystackCfg = cfg.paystack || paystackCfg;
+    upsellCfg = { rushDelivery: cfg.rushDelivery || { enabled: false }, addons: Array.isArray(cfg.addons) ? cfg.addons : [] };
+    selectedPkg = s.packages[1] ? s.packages[1].id : s.packages[0].id;
+    render();
+  } catch (e) {
+    root.innerHTML = '<div class="empty"><div class="big">😕</div>Service not found. <a href="/services" style="color:var(--accent)">Browse all services</a></div>';
+  }
+}
+
+function render() {
+  const root = document.getElementById('orderRoot');
+  root.innerHTML = `
+    <div class="flex" style="margin-bottom:8px"><a href="/services" style="color:var(--muted);font-size:.88rem">← All services</a></div>
+    <div class="panel" style="padding:0;overflow:hidden">
+      <div style="display:grid;grid-template-columns:1fr 1.4fr">
+        <div style="min-height:260px"><img src="${service.image}" style="width:100%;height:100%;object-fit:cover" alt="${esc(service.name)}"></div>
+        <div style="padding:28px">
+          <div style="color:var(--accent);font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:1px">${esc(service.category)}</div>
+          <h2 style="margin:8px 0">${service.icon} ${esc(service.name)}</h2>
+          <p style="color:var(--muted);line-height:1.6;font-size:.93rem">${esc(service.description)}</p>
+          <div class="flex mt-2" style="gap:18px;color:var(--muted);font-size:.86rem">
+            <span>⭐ ${service.rating}/5</span><span>📦 ${service.orders}+ orders</span><span>⏱️ ~${service.deliveryDays} days</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="mt-3" style="font-size:1.25rem">1. Choose your package</h3>
+    <div class="pkg-grid" id="pkgGrid">
+      ${service.packages.map((p, i) => `
+        <div class="pkg-card ${p.id === selectedPkg ? 'selected' : ''}" data-pkg="${p.id}">
+          ${i === 1 ? '<div class="pkg-pop">MOST POPULAR</div>' : ''}
+          <div class="pname">${esc(p.name)}</div>
+          <div class="pprice">${fmt(p.price)}</div>
+          <div class="pdesc">${esc(p.desc)}</div>
+          <ul>${p.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
+        </div>`).join('')}
+    </div>
+
+    <h3 style="font-size:1.25rem">2. Tell us about your project</h3>
+    <div class="panel mt-2">
+      <div class="field">
+        <label>Project brief / requirements</label>
+        <textarea id="reqTxt" placeholder="Describe what you need: colors, style, text to include, links, examples... (Nova AI can help you refine this — just ask in the chat!)"></textarea>
+      </div>
+    </div>
+
+    ${renderUpsells()}
+
+    <h3 style="font-size:1.25rem;margin-top:18px">3. Pay securely with Paystack</h3>
+    <div class="panel mt-2">
+      <div class="paystack-box">
+        <div class="paystack-row">
+          <div class="paystack-badge">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#0AA5C2"/><path d="M6 8.2h12M6 12h12M6 15.8h7.5" stroke="#fff" stroke-width="2.1" stroke-linecap="round"/></svg>
+            <div>
+              <b>Paystack Checkout</b>
+              <small>Card • Bank transfer • USSD • Mobile money • QR</small>
+            </div>
+          </div>
+          <span class="paystack-secure">🔒 256-bit encrypted</span>
+        </div>
+        <p class="paystack-note">You'll complete payment in Paystack's secure window${paystackCfg.demo ? ' <b>(TEST MODE — no real charge)</b>' : ''}. Your order starts processing the moment payment is confirmed.</p>
+      </div>
+
+      <div id="orderMsg"></div>
+      <div class="flex" style="justify-content:space-between;flex-wrap:wrap;align-items:center">
+        <div style="font-size:1.15rem">Total: <b id="totalLbl" style="color:var(--accent2);font-size:1.5rem"></b> <span style="color:var(--muted);font-size:.85rem">(${getCurrency()})</span></div>
+        <button class="btn btn-primary" id="placeBtn" style="font-size:1rem;padding:13px 30px">Pay with Paystack →</button>
+      </div>
+    </div>`;
+
+  updateTotal();
+  document.querySelectorAll('.pkg-card').forEach(c => c.addEventListener('click', () => {
+    selectedPkg = c.dataset.pkg;
+    document.querySelectorAll('.pkg-card').forEach(x => x.classList.toggle('selected', x.dataset.pkg === selectedPkg));
+    updateTotal();
+  }));
+  // Wire up upsell controls
+  const rushCb = document.getElementById('rushCb');
+  if (rushCb) rushCb.addEventListener('change', () => { rushOn = rushCb.checked; updateTotal(); });
+  document.querySelectorAll('.addon-cb').forEach(cb => cb.addEventListener('change', () => {
+    if (cb.checked) selectedAddons.add(cb.value); else selectedAddons.delete(cb.value);
+    updateTotal();
+  }));
+  document.getElementById('placeBtn').addEventListener('click', placeOrder);
+}
+
+// Render the rush-delivery + add-ons upsell section
+function renderUpsells() {
+  const rush = upsellCfg.rushDelivery || {};
+  const addons = upsellCfg.addons || [];
+  const hasRush = rush.enabled;
+  const hasAddons = addons.length > 0;
+  if (!hasRush && !hasAddons) return '';   // nothing to show
+
+  let rushHtml = '';
+  if (hasRush) {
+    const ratePct = Math.round((rush.surchargeRate || 0.35) * 100);
+    rushHtml = `
+      <label class="upsell-row" style="display:flex;gap:14px;align-items:flex-start;padding:16px;border:2px solid var(--border);border-radius:12px;cursor:pointer;margin-bottom:12px">
+        <input type="checkbox" id="rushCb" style="margin-top:4px;width:18px;height:18px;accent-color:var(--accent2)">
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:1rem">⚡ ${esc(rush.label || 'Rush delivery')} <span style="color:var(--accent2);font-size:.85rem">(+${ratePct}% fee)</span></div>
+          <div style="color:var(--muted);font-size:.86rem;margin-top:4px;line-height:1.5">${esc(rush.note || 'Priority turnaround — your order jumps to the front of the queue.')}</div>
+        </div>
+      </label>`;
+  }
+
+  let addonHtml = '';
+  if (hasAddons) {
+    addonHtml = `
+      <div style="font-weight:700;font-size:.95rem;margin:8px 0">🧩 Boost your order with add-ons</div>
+      <div style="display:grid;gap:10px">
+        ${addons.map(a => `
+          <label class="upsell-row addon-cb-wrap" style="display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border:2px solid var(--border);border-radius:12px;cursor:pointer">
+            <input type="checkbox" class="addon-cb" value="${esc(a.id)}" style="margin-top:4px;width:18px;height:18px;accent-color:var(--accent2)">
+            <div style="flex:1">
+              <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">
+                <span style="font-weight:700;font-size:.95rem">${esc(a.name)}</span>
+                <span style="color:var(--accent2);font-weight:700;white-space:nowrap">+${fmt(a.price)}</span>
+              </div>
+              <div style="color:var(--muted);font-size:.84rem;margin-top:3px;line-height:1.5">${esc(a.desc)}</div>
+            </div>
+          </label>`).join('')}
+      </div>`;
+  }
+
+  return `
+    <h3 style="font-size:1.25rem;margin-top:18px">⚡ Speed up & enhance your order <span style="color:var(--muted);font-size:.8rem;font-weight:400">(optional)</span></h3>
+    <div class="panel mt-2">
+      ${rushHtml}
+      ${addonHtml}
+      <div id="upsellSummary" style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);font-size:.88rem;color:var(--muted)"></div>
+    </div>`;
+}
+
+function updateTotal() {
+  const p = service.packages.find(x => x.id === selectedPkg);
+  const base = p.price;
+  const addons = (upsellCfg.addons || []).filter(a => selectedAddons.has(a.id));
+  const addonsTotal = addons.reduce((s, a) => s + a.price, 0);
+  let rushSurcharge = 0;
+  const rush = upsellCfg.rushDelivery || {};
+  if (rushOn && rush.enabled) {
+    const rate = rush.surchargeRate || 0.35;
+    const min = rush.minSurcharge || 5;
+    rushSurcharge = Math.max(base * rate, min);
+  }
+  const total = Math.round((base + rushSurcharge + addonsTotal) * 100) / 100;
+  document.getElementById('totalLbl').textContent = fmt(total);
+
+  // Show a breakdown summary
+  const sum = document.getElementById('upsellSummary');
+  if (sum) {
+    const lines = [`Package (${esc(p.name)}): <b>${fmt(base)}</b>`];
+    if (rushOn && rushSurcharge > 0) lines.push(`⚡ Rush delivery: <b>+${fmt(rushSurcharge)}</b>`);
+    addons.forEach(a => lines.push(`🧩 ${esc(a.name)}: <b>+${fmt(a.price)}</b>`));
+    lines.push(`<span style="color:var(--accent2)">Order total: <b>${fmt(total)}</b></span>`);
+    sum.innerHTML = lines.join('<br>');
+  }
+}
+
+function setBtnLoading(loading) {
+  const btn = document.getElementById('placeBtn');
+  btn.disabled = loading;
+  btn.innerHTML = loading ? '<span class="spin"></span> Processing…' : 'Pay with Paystack →';
+}
+
+async function placeOrder() {
+  const msg = document.getElementById('orderMsg');
+  if (!API.user()) {
+    msg.innerHTML = '<div class="form-error">Please log in or create a free account to place your order. Redirecting…</div>';
+    setTimeout(() => location.href = '/auth?mode=register&next=' + encodeURIComponent(location.pathname + location.search), 1200);
+    return;
+  }
+  setBtnLoading(true);
+  msg.innerHTML = '';
+  try {
+    // 1) Create the order + initialize a Paystack transaction on the server
+    const { order, payment } = await API.post('/orders', {
+      serviceId: service.id,
+      packageId: selectedPkg,
+      requirements: document.getElementById('reqTxt').value,
+      rushDelivery: rushOn,
+      addons: Array.from(selectedAddons)
+    });
+
+    // 2) Open Paystack checkout — inline popup when possible, redirect otherwise
+    if (payment.demo) {
+      // TEST MODE: simulate the Paystack redirect flow locally
+      msg.innerHTML = '<div class="form-ok">🧪 TEST MODE: simulating Paystack payment…</div>';
+      location.href = '/payment/callback?reference=' + encodeURIComponent(payment.reference) + '&demo=1';
+      return;
+    }
+
+    const user = API.user();
+    if (window.PaystackPop && payment.publicKey) {
+      openPaystackPopup(order, payment, user, msg);
+    } else if (payment.authorizationUrl) {
+      // Fallback: full redirect to Paystack-hosted checkout page
+      location.href = payment.authorizationUrl;
+    } else {
+      throw new Error('Paystack checkout is unavailable right now. Please try again.');
+    }
+  } catch (e) {
+    msg.innerHTML = '<div class="form-error">' + esc(e.message) + '</div>';
+    setBtnLoading(false);
+  }
+}
+
+function openPaystackPopup(order, payment, user, msg) {
+  const popup = new PaystackPop();
+  popup.newTransaction({
+    key: payment.publicKey,
+    email: user.email,
+    amount: payment.amount,          // already in kobo/cents from the server
+    currency: payment.currency,
+    reference: payment.reference,
+    metadata: {
+      order_id: order.id,
+      service: order.serviceName,
+      package: order.packageName,
+      custom_fields: [
+        { display_name: 'Order ID', variable_name: 'order_id', value: order.id }
+      ]
+    },
+    onSuccess: async (txn) => {
+      msg.innerHTML = '<div class="form-ok">✅ Payment received! Confirming with Paystack…</div>';
+      try {
+        const res = await API.get('/payments/verify/' + encodeURIComponent(txn.reference || payment.reference));
+        msg.innerHTML = `<div class="form-ok">🎉 Payment confirmed! Order <b>${res.order.id}</b> is now being processed. Redirecting to your dashboard…</div>`;
+        toast('Payment successful — order ' + res.order.id + ' confirmed!');
+        setTimeout(() => location.href = '/dashboard', 1600);
+      } catch (e) {
+        msg.innerHTML = '<div class="form-error">Payment was received but confirmation failed: ' + esc(e.message) + '. Your order will update automatically — check your dashboard shortly.</div>';
+        setTimeout(() => location.href = '/dashboard', 2500);
+      }
+    },
+    onCancel: () => {
+      msg.innerHTML = '<div class="form-error">Payment window closed — no charge was made. Your order <b>' + order.id + '</b> is saved as unpaid; you can complete payment anytime from your dashboard.</div>';
+      setBtnLoading(false);
+    },
+    onError: (err) => {
+      msg.innerHTML = '<div class="form-error">Payment error: ' + esc(err.message || 'Something went wrong') + '</div>';
+      setBtnLoading(false);
+    }
+  });
+}
+
+load();
+</script>
+</body>
+</html>

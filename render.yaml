@@ -1,0 +1,46 @@
+# ============================================================
+# CreatiHub — Render.com deployment config
+# Render auto-detects this file when you connect your repo.
+# Docs: https://render.com/docs/blueprint-spec
+# ============================================================
+databases:
+  - name: creatihub-db
+    plan: free            # free Postgres (90 days), or 'starter' for permanent
+    region: oregon
+
+services:
+  - type: web
+    name: creatihub
+    runtime: node
+    plan: free            # change to 'starter' for no sleep + more RAM
+    region: oregon        # oregon | frankfurt | singapore | ohio | etc.
+    branch: main
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/config
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      # ---- PostgreSQL (bulletproof persistence) ----
+      # Links to the creatihub-db database above. User data survives redeploys.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: creatihub-db
+          property: connectionString
+      # ---- Paystack (leave empty to run in DEMO mode) ----
+      - key: PAYSTACK_SECRET_KEY
+        sync: false       # set manually in Render dashboard
+      - key: PAYSTACK_PUBLIC_KEY
+        sync: false
+      # After you connect your custom domain in Render, set this:
+      - key: PAYSTACK_CALLBACK_URL
+        sync: false       # e.g. https://yourdomain.com/payment/callback
+    # The JSON-file disk is optional when using PostgreSQL. Keep it as a
+    # secondary backup location. (Requires starter plan for disks.)
+    disk:
+      name: creatihub-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1

@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard — CreatiHub</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>">
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+<div class="container">
+  <div class="dash">
+    <aside class="dash-side">
+      <div class="dash-side-head">
+        <div class="logo" style="font-size:1.15rem">✦ <span>Admin</span></div>
+        <div class="bell-wrap" id="bellWrap" title="Notifications">
+          🔔<span class="bell-badge" id="bellBadge">0</span>
+        </div>
+      </div>
+      <a href="#overview" class="active" data-view="overview">📊 Overview</a>
+      <a href="#activity" data-view="activity">⚡ Live Activity</a>
+      <a href="#notifications" data-view="notifications">🔔 Notifications <span class="bell-badge" id="navBadge" style="position:static;margin-left:4px;display:none"></span></a>
+      <a href="#pricing" data-view="pricing">💲 Pricing & Services</a>
+      <a href="#customers" data-view="customers">👥 Customers</a>
+      <a href="#subs" data-view="subs">🔁 Subscriptions</a>
+      <a href="#security" data-view="security">🔒 Security & Access</a>
+      <a href="#data" data-view="data">💾 Data & Backups</a>
+      <a href="#aisafety" data-view="aisafety">🛡️ AI Safety</a>
+      <a href="#ai" data-view="ai">🤖 Nova AI Insights</a>
+    </aside>
+    <main class="dash-main" id="dashMain"><div class="empty">Loading…</div></main>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+renderNav('admin');
+renderFooter();
+
+const user = API.user();
+if (!user) location.href = '/auth?next=' + encodeURIComponent('/admin');
+else if (user.role !== 'admin') location.href = '/dashboard';
+
+const main = document.getElementById('dashMain');
+const sideLinks = document.querySelectorAll('.dash-side a');
+let view = location.hash.slice(1) || 'overview';
+
+sideLinks.forEach(a => a.addEventListener('click', e => {
+  e.preventDefault();
+  view = a.dataset.view;
+  location.hash = view;
+  renderView();
+}));
+
+document.getElementById('bellWrap').addEventListener('click', () => {
+  view = 'notifications'; location.hash = view; renderView();
+});
+
+function renderView() {
+  stopPolling();
+  sideLinks.forEach(a => a.classList.toggle('active', a.dataset.view === view));
+  if (view === 'overview') return renderOverview();
+  if (view === 'activity') return renderActivity();
+  if (view === 'notifications') return renderNotifications();
+  if (view === 'pricing') return renderPricing();
+  if (view === 'customers') return renderCustomers();
+  if (view === 'subs') return renderSubsAdmin();
+  if (view === 'security') return renderSecurity();
+  if (view === 'data') return renderData();
+  if (view === 'aisafety') return renderAiSafety();
+  if (view === 'ai') return renderAI();
+}
+
+/* ============================================================ SHARED ============================================================ */
+const ACT_ICONS = {
+  support: '💬', recommendation: '🎨', analytics: '📊', order_help: '📦',
+  faq: '❓', greeting: '👋', blocked: '🚫'
+};
+const NOTIF_ICONS = { order: '📦', payment: '💳', support: '💬', security: '🔒', pricing: '💲', system: '⚙️' };
+let pollTimer = null;
+function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+async function refreshBell() {
+  try {
+    const n = await API.get('/admin/notifications');
+    const u = n.unread;
+    const badge = document.getElementById('bellBadge');
+    const navBadge = document.getElementById('navBadge');
+    badge.textContent = u; badge.classList.toggle('show', u > 0);
+    navBadge.textContent = u; navBadge.style.display = u > 0 ? 'inline-flex' : 'none';
+  } catch (e) {}
+}
+setInterval(refreshBell, 8000);
+refreshBell();
+
+/* ============================================================ OVERVIEW ============================================================ */
+async function renderOverview() {
+  main.innerHTML = '<div class="page-head"><h2>📊 Business Overview</h2></div><div class="empty">Loading analytics…</div>';
+  try {
+    const s = await API.get('/admin/stats');
+    const act = await API.get('/admin/ai-activity');
+    let subStats = { stats: { active: 0, monthlyRecurringRevenue: 0, total: 0 } };
+    try { subStats = await API.get('/admin/subscriptions'); } catch {}
+    const days = Object.entries(s.byDay);
+    const maxDay = Math.max(...days.map(d => d[1]), 1);
+    const svcEntries = Object.entries(s.byService).sort((a, b) => b[1].revenue - a[1].revenue);
+    const maxSvc = Math.max(...svcEntries.map(x => x[1].revenue), 1);
+    const aiByType = {};
+    act.activity.forEach(a => { aiByType[a.type] = (aiByType[a.type] || 0) + 1; });
+    main.innerHTML = `
+      <div class="page-head"><h2>📊 Business Overview</h2><button class="btn btn-ghost btn-sm" onclick="renderOverview()">↻ Refresh</button></div>
+      <div class="stats-strip" style="margin-bottom:24px">
+        <div class="stat-box"><div class="num">$${s.revenue.toLocaleString()}</div><div class="lbl">Total Revenue</div></div>
+        <div class="stat-box"><div class="num">$${(subStats.stats.monthlyRecurringRevenue||0).toLocaleString()}</div><div class="lbl">Monthly Recurring (MRR)</div></div>
+        <div class="stat-box"><div class="num">${s.totalOrders}</div><div class="lbl">Total Orders</div></div>
+        <div class="stat-box"><div class="num">${subStats.stats.active||0}</div><div class="lbl">Active Subscriptions</div></div>
+        <div class="stat-box"><div class="num">${s.customers}</div><div class="lbl">Customers</div></div>
+        <div class="stat-box"><div class="num">${act.total}</div><div class="lbl">AI Tasks Performed</div></div>
+      </div>
+      <div class="panel" style="margin-bottom:20px">
+        <h3>⚡ Latest AI Activity <a href="#activity" onclick="view='activity';renderView()" style="float:right;font-size:.82rem;color:var(--accent)">View live feed →</a></h3>
+        <div class="feed-list" style="max-height:240px">
+          ${act.activity.slice(0,5).map(a => `
+            <div class="feed-item">
+              <div class="feed-ico ${a.type}">${ACT_ICONS[a.type] || '🤖'}</div>
+              <div class="feed-body">
+                <div class="fhead"><span class="faction">${esc(a.action)}</span><span class="ftime">${timeAgo(a.at)}</span></div>
+                <div class="factor">by ${esc(a.actor)}</div>
+              </div>
+            </div>`).join('') || '<p style="color:var(--muted)">No AI activity yet. Nova will appear here as it works.</p>'}
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" class="ov-grid">
+        <div class="panel">
+          <h3>💰 Revenue — Last 7 Days</h3>
+          <div class="bar-chart">
+            ${days.map(([d, v]) => `
+              <div class="bar-col">
+                <div class="bar" style="height:${Math.max((v / maxDay) * 100, 3)}%"><span class="val">$${v}</span></div>
+                <div class="bar-lbl">${new Date(d).toLocaleDateString(undefined, { weekday: 'short' })}</div>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div class="panel">
+          <h3>📦 Orders by Status</h3>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
+            <div class="stat-box" style="flex:1;padding:18px"><div class="num" style="color:var(--warn);-webkit-text-fill-color:var(--warn)">${s.byStatus.pending || 0}</div><div class="lbl">Pending</div></div>
+            <div class="stat-box" style="flex:1;padding:18px"><div class="num" style="color:var(--accent);-webkit-text-fill-color:var(--accent)">${s.byStatus.in_progress || 0}</div><div class="lbl">In Progress</div></div>
+            <div class="stat-box" style="flex:1;padding:18px"><div class="num" style="color:var(--accent2);-webkit-text-fill-color:var(--accent2)">${s.byStatus.completed || 0}</div><div class="lbl">Completed</div></div>
+          </div>
+          <h3 class="mt-3">🏆 Revenue by Service</h3>
+          <div class="mt-2">
+            ${svcEntries.slice(0, 5).map(([name, d]) => `
+              <div class="hbar-row">
+                <span class="nm">${esc(name)}</span>
+                <div class="hbar-track"><div class="hbar-fill" style="width:${Math.max((d.revenue / maxSvc) * 100, 8)}%">$${d.revenue}</div></div>
+              </div>`).join('') || '<p style="color:var(--muted)">No data yet.</p>'}
+          </div>
+        </div>
+      </div>`;
+  } catch (e) {
+    main.innerHTML = '<div class="empty">Failed to load stats: ' + esc(e.message) + '</div>';
+  }
+}
+
+/* ============================================================ LIVE ACTIVITY (real-time AI feed) ============================================================ */
+let actFilter = 'all';
+let lastActTime = null;
+async function renderActivity() {
+  main.innerHTML = `
+    <div class="page-head"><h2>⚡ Live AI Activity</h2><div class="live-tag"><span class="live-dot"></span>Live · auto-refresh 5s</div></div>
+    <p style="color:var(--muted);margin-bottom:18px;max-width:720px">Watch Nova work in real time. Every support reply, recommendation, analytics task and safety block appears here the moment it happens.</p>
+    <div class="feed-toolbar">
+      <div class="feed-type-filter" id="actFilter">
+        <button class="active" data-f="all">All</button>
+        <button data-f="support">💬 Support</button>
+        <button data-f="recommendation">🎨 Recommendations</button>
+        <button data-f="analytics">📊 Analytics</button>
+        <button data-f="order_help">📦 Orders</button>
+        <button data-f="blocked">🚫 Blocked</button>
+      </div>
+      <span id="actCount" style="color:var(--muted);font-size:.85rem"></span>
+    </div>
+    <div class="feed-list" id="actList"><div class="empty">Loading live activity…</div></div>`;
+  lastActTime = null;
+  document.querySelectorAll('#actFilter button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#actFilter button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    actFilter = b.dataset.f;
+    lastActTime = null;
+    pollActivity();
+  }));
+  pollActivity();
+  pollTimer = setInterval(pollActivity, 5000);
+}
+async function pollActivity() {
+  try {
+    const url = lastActTime ? '/admin/ai-activity?since=' + encodeURIComponent(lastActTime) : '/admin/ai-activity';
+    const res = await API.get(url);
+    lastActTime = res.serverTime;
+    const list = document.getElementById('actList');
+    if (!list) return;
+    const all = res.activity;
+    const items = actFilter === 'all' ? all : all.filter(a => a.type === actFilter);
+    document.getElementById('actCount').textContent = res.total + ' total AI tasks';
+    if (!items.length && !list.querySelector('.feed-item')) {
+      list.innerHTML = '<div class="empty"><div class="big">🤖</div>Nova is idle right now.<br>New activity will appear here automatically.</div>';
+      return;
+    }
+    // Prepend only genuinely new items
+    const existingIds = new Set([...list.querySelectorAll('.feed-item')].map(el => el.dataset.id));
+    const newOnes = items.filter(a => !existingIds.has(a.id));
+    if (newOnes.length) {
+      const frag = document.createElement('div');
+      frag.innerHTML = newOnes.map(a => `
+        <div class="feed-item new" data-id="${a.id}">
+          <div class="feed-ico ${a.type}">${ACT_ICONS[a.type] || '🤖'}</div>
+          <div class="feed-body">
+            <div class="fhead"><span class="faction">${esc(a.action)}</span><span class="ftime">${timeAgo(a.at)}</span></div>
+            <div class="factor">by ${esc(a.actor)}</div>
+            <div class="fdetail">${esc(a.detail)}</div>
+          </div>
+        </div>`).join('');
+      [...frag.children].reverse().forEach(c => list.insertBefore(c, list.firstChild));
+      // Trim to 100
+      [...list.querySelectorAll('.feed-item')].slice(100).forEach(el => el.remove());
+      // remove placeholder
+      const empty = list.querySelector('.empty'); if (empty) empty.remove();
+    }
+  } catch (e) {}
+}
+
+/* ============================================================ NOTIFICATIONS ============================================================ */
+async function renderNotifications() {
+  main.innerHTML = '<div class="page-head"><h2>🔔 Notifications</h2></div><div class="empty">Loading…</div>';
+  try {
+    const n = await API.get('/admin/notifications');
+    main.innerHTML = `
+      <div class="page-head"><h2>🔔 Notifications</h2><button class="btn btn-ghost btn-sm" id="markAllBtn">✓ Mark all read</button></div>
+      <div class="panel" style="padding:0;overflow:hidden">
+        ${n.notifications.length ? n.notifications.map(item => `
+          <div class="notif-item ${item.read ? '' : 'unread'}" data-id="${item.id}">
+            <div class="notif-ico">${NOTIF_ICONS[item.type] || '🔔'}</div>
+            <div class="notif-body">
+              <div class="ntitle">${esc(item.title)}</div>
+              <div class="nmsg">${esc(item.message)}</div>
+              <div class="ntime">${timeAgo(item.at)}${item.read ? '' : ' · <b style="color:var(--accent)">unread</b>'}</div>
+            </div>
+          </div>`).join('') : '<div class="empty"><div class="big">🔕</div>No notifications yet.<br>You\'ll be alerted here for orders, payments, support messages, price changes and security events.</div>'}
+      </div>`;
+    document.getElementById('markAllBtn').addEventListener('click', async () => {
+      try { await API.post('/admin/notifications/read-all'); toast('All notifications marked read'); refreshBell(); renderNotifications(); }
+      catch (e) { toast('Error: ' + e.message); }
+    });
+    main.querySelectorAll('.notif-item').forEach(el => el.addEventListener('click', async () => {
+      if (el.classList.contains('unread')) {
+        try { await API.put('/admin/notifications/' + el.dataset.id + '/read'); el.classList.remove('unread'); refreshBell(); }
+        catch (e) {}
+      }
+    }));
+    refreshBell();
+  } catch (e) {
+    main.innerHTML = '<div class="empty">Failed to load notifications.</div>';
+  }
+}
+
+/* ============================================================ PRICING & SERVICES ============================================================ */
+let priceServices = [];
+async function renderPricing() {
+  main.innerHTML = '<div class="page-head"><h2>💲 Pricing & Services</h2></div><div class="empty">Loading services…</div>';
+  try {
+    const data = await API.get('/admin/services');
+    priceServices = JSON.parse(JSON.stringify(data.services)); // deep clone for editing
+    main.innerHTML = `
+      <div class="page-head"><h2>💲 Pricing & Services</h2><span style="color:var(--muted);font-size:.9rem">${priceServices.length} services</span></div>
+      <p style="color:var(--muted);margin-bottom:20px;max-width:720px">Edit the price of any package (Basic / Standard / Premium) to reduce or raise your service prices. Changes go live instantly for all customers. Every change is recorded in the price history.</p>
+      <div id="priceList"></div>
+      <div class="panel mt-3">
+        <h3>📜 Price Change History</h3>
+        <div id="priceHist"><div style="color:var(--muted);font-size:.88rem;padding:8px 0">Loading…</div></div>
+      </div>`;
+    renderPriceCards();
+    loadPriceHistory();
+  } catch (e) {
+    main.innerHTML = '<div class="empty">Failed to load services: ' + esc(e.message) + '</div>';
+  }
+}
+function renderPriceCards() {
+  const wrap = document.getElementById('priceList');
+  wrap.innerHTML = priceServices.map(svc => `
+    <div class="price-svc-card">
+      <div class="price-svc-head">
+        <span class="pico">${svc.icon}</span>
+        <h3>${esc(svc.name)}</h3>
+        <span class="badge" style="background:rgba(108,92,231,.15);color:var(--primary2)">${esc(svc.category)}</span>
+      </div>
+      ${svc.packages.map(pkg => `
+        <div class="price-pkg-row" data-svc="${svc.id}" data-pkg="${pkg.id}">
+          <div class="price-pkg-name">${esc(pkg.name)}</div>
+          <div class="price-pkg-desc">${esc(pkg.desc)}</div>
+          <div class="price-input-wrap">
+            <span class="cur">$</span>
+            <input class="price-input" type="number" min="0" step="0.01" value="${pkg.price}" data-orig="${pkg.price}">
+            <span class="price-delta" data-delta></span>
+          </div>
+          <button class="price-save-btn" disabled>Save</button>
+        </div>`).join('')}
+      <div class="discount-bar">
+        <span style="color:var(--muted);font-size:.85rem">Quick discount:</span>
+        <select class="disc-pct">
+          <option value="10">10% off</option><option value="15">15% off</option>
+          <option value="20">20% off</option><option value="25">25% off</option>
+          <option value="30">30% off</option><option value="40">40% off</option><option value="50">50% off</option>
+        </select>
+        <button class="btn btn-primary btn-sm disc-btn" data-svc="${svc.id}">Apply to all packages</button>
+      </div>
+    </div>`).join('');
+  // wire up price inputs
+  wrap.querySelectorAll('.price-pkg-row').forEach(row => {
+    const input = row.querySelector('.price-input');
+    const delta = row.querySelector('[data-delta]');
+    const btn = row.querySelector('.price-save-btn');
+    const orig = parseFloat(input.dataset.orig);
+    input.addEventListener('input', () => {
+      const val = parseFloat(input.value);
+      if (isNaN(val) || val === orig) {
+        input.classList.remove('changed'); delta.textContent = ''; btn.classList.remove('ready'); btn.disabled = true; return;
+      }
+      input.classList.add('changed'); btn.classList.add('ready'); btn.disabled = false;
+      const diff = val - orig;
+      delta.className = 'price-delta ' + (diff < 0 ? 'down' : 'up');
+      delta.textContent = diff < 0 ? `▼ $${Math.abs(diff).toFixed(2)}` : `▲ $${diff.toFixed(2)}`;
+    });
+    btn.addEventListener('click', async () => {
+      const val = parseFloat(input.value);
+      if (isNaN(val) || val < 0) { toast('Enter a valid price'); return; }
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        const res = await API.put('/admin/services/' + row.dataset.svc + '/packages/' + row.dataset.pkg, { price: val });
+        input.dataset.orig = val; input.value = val; input.classList.remove('changed');
+        delta.textContent = ''; btn.classList.remove('ready'); btn.textContent = 'Saved ✓';
+        toast(`Price updated: ${res.package.name} → $${val}`);
+        setTimeout(() => { btn.textContent = 'Save'; }, 1800);
+      } catch (e) { toast('Error: ' + e.message); btn.textContent = 'Save'; btn.disabled = false; }
+    });
+  });
+  // wire up discount buttons
+  wrap.querySelectorAll('.disc-btn').forEach(btn => btn.addEventListener('click', async () => {
+    const card = btn.closest('.price-svc-card');
+    const pct = card.querySelector('.disc-pct').value;
+    if (!confirm(`Apply ${pct}% discount to ALL packages of this service?`)) return;
+    btn.disabled = true; btn.textContent = 'Applying…';
+    try {
+      const res = await API.post('/admin/services/' + btn.dataset.svc + '/discount', { percent: pct });
+      toast(`${pct}% discount applied!`);
+      // update inputs to reflect new prices
+      res.service.packages.forEach(p => {
+        const row = card.querySelector(`.price-pkg-row[data-pkg="${p.id}"]`);
+        const inp = row.querySelector('.price-input');
+        inp.value = p.price; inp.dataset.orig = p.price; inp.classList.remove('changed');
+        row.querySelector('[data-delta]').textContent = '';
+        row.querySelector('.price-save-btn').classList.remove('ready');
+      });
+      btn.disabled = false; btn.textContent = 'Apply to all packages';
+      loadPriceHistory();
+    } catch (e) { toast('Error: ' + e.message); btn.disabled = false; btn.textContent = 'Apply to all packages'; }
+  }));
+}
+async function loadPriceHistory() {
+  const el = document.getElementById('priceHist');
+  if (!el) return;
+  try {
+    const h = await API.get('/admin/price-history');
+    el.innerHTML = h.history.length ? h.history.map(p => `
+      <div class="price-hist-item">
+        <span><b>${esc(p.serviceName)}</b> · ${esc(p.packageName)}</span>
+        <span><span class="ph-old">$${p.oldPrice}</span> → <span class="ph-new">$${p.newPrice}</span> <small style="color:var(--muted)">by ${esc(p.by)} · ${timeAgo(p.at)}</small></span>
+      </div>`).join('') : '<div style="color:var(--muted);font-size:.88rem;padding:8px 0">No price changes yet.</div>';
+  } catch (e) {}
+}
+
+/* ============================================================ CUSTOMERS ============================================================ */
+async function renderCustomers() {
+  main.innerHTML = '<div class="page-head"><h2>👥 Customers</h2></div><div class="empty">Loading…</div>';
+  try {
+    const { users } = await API.get('/admin/users');
+    const customers = users.filter(u => u.role !== 'admin');
+    main.innerHTML = `
+      <div class="page-head"><h2>👥 Customers</h2><span style="color:var(--muted);font-size:.9rem">${customers.length} registered</span></div>
+      <div class="panel tbl-wrap" style="padding:10px">
+        <table class="tbl">
+          <thead><tr><th>Name</th><th>Email</th><th>Currency</th><th>Joined</th></tr></thead>
+          <tbody>
+            ${customers.map(u => `
+              <tr>
+                <td><div class="flex"><div class="tst-user"><div class="av" style="width:34px;height:34px;font-size:.85rem">${esc(u.name[0] || '?')}</div></div><b>${esc(u.name)}</b></div></td>
+                <td style="color:var(--muted)">${esc(u.email)}</td>
+                <td>${esc(u.currency || 'USD')}</td>
+                <td style="color:var(--muted)">${new Date(u.createdAt).toLocaleDateString()}</td>
+              </tr>`).join('') || '<tr><td colspan="4" style="color:var(--muted);text-align:center;padding:30px">No customers yet.</td></tr>'}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    main.innerHTML = '<div class="empty">Failed to load customers.</div>';
+  }
+}
+
+/* ============================================================ SUBSCRIPTIONS ============================================================ */
+async function renderSubsAdmin() {
+  main.innerHTML = '<div class="page-head"><h2>🔁 Subscriptions</h2></div><div class="empty">Loading…</div>';
+  try {
+    const r = await API.get('/admin/subscriptions');
+    const subs = r.subscriptions || [];
+    const st = r.stats || {};
+    main.innerHTML = `
+      <div class="page-head"><h2>🔁 Subscriptions</h2><button class="btn btn-ghost btn-sm" onclick="renderSubsAdmin()">↻ Refresh</button></div>
+      <div class="stats-strip" style="margin-bottom:20px">
+        <div class="stat-box"><div class="num">${st.active||0}</div><div class="lbl">Active</div></div>
+        <div class="stat-box"><div class="num">${st.pending||0}</div><div class="lbl">Pending</div></div>
+        <div class="stat-box"><div class="num">${st.cancelled||0}</div><div class="lbl">Cancelled</div></div>
+        <div class="stat-box"><div class="num">$${(st.monthlyRecurringRevenue||0).toLocaleString()}</div><div class="lbl">MRR</div></div>
+      </div>
+      <div class="panel tbl-wrap" style="padding:10px">
+        <table class="tbl">
+          <thead><tr><th>Customer</th><th>Plan</th><th>Price</th><th>Status</th><th>Started</th><th>Next Billing</th><th></th></tr></thead>
+          <tbody>
+            ${subs.map(s => {
+              const sc = { active:'#16a34a', pending:'#d97706', cancelled:'#dc2626' }[s.status] || 'var(--muted)';
+              return `<tr>
+                <td><b>${esc(s.userName)}</b><br><span style="color:var(--muted);font-size:.82rem">${esc(s.userEmail)}</span></td>
+                <td>${esc(s.planName)}</td>
+                <td>$${s.planPrice}/${s.interval}</td>
+                <td><span style="color:${sc};font-weight:600;text-transform:capitalize">${s.status}</span></td>
+                <td style="color:var(--muted)">${new Date(s.startedAt).toLocaleDateString()}</td>
+                <td style="color:var(--muted)">${s.currentPeriodEnd ? new Date(s.currentPeriodEnd).toLocaleDateString() : '—'}</td>
+                <td>${s.status!=='cancelled' ? `<button class="btn btn-ghost btn-sm" onclick="adminCancelSub('${s.id}')">Cancel</button>` : ''}</td>
+              </tr>`;
+            }).join('') || '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:30px">No subscriptions yet.</td></tr>'}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    main.innerHTML = '<div class="empty">Failed to load subscriptions.</div>';
+  }
+}
+
+async function adminCancelSub(id) {
+  if (!confirm('Cancel this customer subscription?')) return;
+  try { await API.post('/subscriptions/' + id + '/cancel'); renderSubsAdmin(); }
+  catch (e) { alert('Could not cancel: ' + (e.message || 'Unknown error')); }
+}
+
+/* ============================================================ SECURITY & ACCESS ============================================================ */
+async function renderSecurity() {
+  main.innerHTML = '<div class="page-head"><h2>🔒 Security & Access</h2></div><div class="empty">Loading…</div>';
+  let users = [];
+  try { users = (await API.get('/admin/users')).users; } catch (e) {}
+  main.innerHTML = `
+    <div class="page-head"><h2>🔒 Security & Access</h2></div>
+    <p style="color:var(--muted);margin-bottom:22px;max-width:680px">Admins can reset their own login details at any time, and can also reset the password of any account (user or admin). Resetting a password signs that account out everywhere.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start" class="sec-grid">
+      <div class="panel">
+        <h3>🔑 My Admin Password</h3>
+        <div id="apwMsg"></div>
+        <form id="apwForm">
+          <div class="field"><label>Current password</label><input id="aCurPw" type="password" required autocomplete="current-password"></div>
+          <div class="field"><label>New password</label><input id="aNewPw" type="password" required minlength="6" placeholder="Min. 6 characters" autocomplete="new-password"></div>
+          <div class="field"><label>Confirm new password</label><input id="aNewPw2" type="password" required minlength="6" autocomplete="new-password"></div>
+          <button class="btn btn-primary" style="width:100%" id="apwBtn">Update My Password</button>
+        </form>
+        <p style="color:var(--muted);font-size:.82rem;margin-top:16px">💡 Locked out? Use the <a href="/auth?mode=reset" style="color:var(--accent)">forgot-password flow</a> — it works for admin accounts too.</p>
+      </div>
+      <div class="panel">
+        <h3>🛠️ Reset Any Account's Password</h3>
+        <div id="rstMsg"></div>
+        <form id="rstForm">
+          <div class="field"><label>Account</label>
+            <select id="rstUser">
+              ${users.map(u => `<option value="${u.id}">${esc(u.name)} — ${esc(u.email)}${u.role === 'admin' ? ' (admin)' : ''}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field"><label>New temporary password</label><input id="rstPw" type="text" required minlength="6" placeholder="Min. 6 characters"></div>
+          <button class="btn btn-danger" style="width:100%" id="rstBtn">Reset Account Password</button>
+        </form>
+        <p style="color:var(--muted);font-size:.82rem;margin-top:16px">⚠️ The account is signed out of all devices immediately. Share the temporary password securely and ask the user to change it from their dashboard.</p>
+      </div>
+    </div>`;
+  document.getElementById('apwForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const m = document.getElementById('apwMsg'); const btn = document.getElementById('apwBtn');
+    const cur = document.getElementById('aCurPw').value, nw = document.getElementById('aNewPw').value, nw2 = document.getElementById('aNewPw2').value;
+    m.innerHTML = '';
+    if (nw !== nw2) { m.innerHTML = '<div class="form-error">New passwords do not match.</div>'; return; }
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Updating…';
+    try {
+      const res = await API.put('/me/password', { currentPassword: cur, newPassword: nw });
+      m.innerHTML = '<div class="form-ok">' + esc(res.message) + '</div>';
+      document.getElementById('apwForm').reset(); toast('Admin password updated!');
+    } catch (err) { m.innerHTML = '<div class="form-error">' + esc(err.message) + '</div>'; }
+    btn.disabled = false; btn.textContent = 'Update My Password';
+  });
+  document.getElementById('rstForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const m = document.getElementById('rstMsg'); const btn = document.getElementById('rstBtn'); const sel = document.getElementById('rstUser');
+    const targetName = sel.options[sel.selectedIndex].text; m.innerHTML = '';
+    if (!confirm('Reset password for ' + targetName + '?\nThey will be signed out of all devices.')) return;
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Resetting…';
+    try {
+      const res = await API.put('/admin/users/' + sel.value + '/reset-password', { newPassword: document.getElementById('rstPw').value });
+      m.innerHTML = '<div class="form-ok">' + esc(res.message) + '</div>';
+      document.getElementById('rstForm').reset(); toast('Password reset complete');
+    } catch (err) { m.innerHTML = '<div class="form-error">' + esc(err.message) + '</div>'; }
+    btn.disabled = false; btn.textContent = 'Reset Account Password';
+  });
+}
+
+/* ============================================================ DATA & BACKUPS ============================================================ */
+async function renderData() {
+  const main = document.getElementById('main');
+  main.innerHTML = '<div class="page-head"><h2>💾 Data & Backups</h2></div><div class="empty">Loading backups…</div>';
+  try {
+    const data = await API.get('/admin/backups');
+    const backups = data.backups || [];
+    main.innerHTML = `
+      <div class="page-head"><h2>💾 Data & Backups</h2><button class="btn btn-ghost btn-sm" onclick="renderData()">↻ Refresh</button></div>
+
+      <div class="panel" style="margin-bottom:18px">
+        <h3 style="margin-top:0">📤 Export All Data</h3>
+        <p style="color:var(--muted);font-size:.9rem;line-height:1.6">Download a complete snapshot of your entire database (users, orders, services, chats, settings) as a single JSON file. Keep it safe — this is your instant recovery copy.</p>
+        <button class="btn btn-primary" id="exportBtn">⬇ Download Full Export</button>
+        <div id="exportMsg" style="margin-top:8px"></div>
+      </div>
+
+      <div class="panel" style="margin-bottom:18px">
+        <h3 style="margin-top:0">📦 Create Backup Now</h3>
+        <p style="color:var(--muted);font-size:.9rem;line-height:1.6">Save a timestamped copy of your database to the server's backup folder. Auto-backup also runs daily on boot and every 24h (keeping the last ${data.maxFiles} files).</p>
+        <button class="btn btn-primary" id="backupBtn">💾 Back Up Now</button>
+        <div id="backupMsg" style="margin-top:8px"></div>
+      </div>
+
+      <div class="panel">
+        <h3 style="margin-top:0">🗂️ Stored Backups (${backups.length})</h3>
+        ${backups.length === 0 ? '<div class="empty">No backups yet.</div>' : `
+        <table class="admin-table">
+          <thead><tr><th>File</th><th>Size</th><th>Date</th><th></th></tr></thead>
+          <tbody>
+            ${backups.map(b => `<tr>
+              <td style="font-family:monospace;font-size:.85rem">${esc(b.file)}</td>
+              <td>${(b.size/1024).toFixed(1)} KB</td>
+              <td>${new Date(b.mtime).toLocaleString()}</td>
+              <td><button class="btn btn-ghost btn-sm" onclick="downloadBackup('${esc(b.file)}')">⬇ Download</button></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`}
+      </div>`;
+
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const m = document.getElementById('exportMsg');
+      m.innerHTML = '<div class="form-ok">Preparing download…</div>';
+      // Trigger a file download with the admin token via a fetch + blob
+      API.get('/admin/export').then(text => {
+        const blob = new Blob([JSON.stringify(text, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'creatihub-export-' + new Date().toISOString().slice(0, 19).replace(/:/g, '-') + '.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        m.innerHTML = '<div class="form-ok">✅ Export downloaded!</div>';
+        toast('Database exported successfully');
+      }).catch(e => { m.innerHTML = '<div class="form-error">' + esc(e.message) + '</div>'; });
+    });
+
+    document.getElementById('backupBtn').addEventListener('click', async () => {
+      const m = document.getElementById('backupMsg');
+      const btn = document.getElementById('backupBtn');
+      btn.disabled = true; btn.textContent = 'Backing up…';
+      try {
+        const r = await API.post('/admin/backups', {});
+        if (r.ok) { m.innerHTML = '<div class="form-ok">✅ Backup created: ' + esc(r.file) + '</div>'; toast('Backup created'); setTimeout(renderData, 800); }
+        else { m.innerHTML = '<div class="form-error">' + esc(r.error) + '</div>'; }
+      } catch (e) { m.innerHTML = '<div class="form-error">' + esc(e.message) + '</div>'; }
+      btn.disabled = false; btn.textContent = '💾 Back Up Now';
+    });
+  } catch (e) {
+    main.innerHTML = '<div class="empty">Failed to load backups: ' + esc(e.message) + '</div>';
+  }
+}
+
+// Download a stored backup file (uses fetch + blob to attach the auth token)
+async function downloadBackup(filename) {
+  try {
+    const data = await API.get('/admin/backups/' + encodeURIComponent(filename));
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+    toast('Backup downloaded');
+  } catch (e) { toast('Download failed: ' + e.message); }
+}
+
+/* ============================================================ AI SAFETY ============================================================ */
+let aiSettings = null;
+async function renderAiSafety() {
+  main.innerHTML = '<div class="page-head"><h2>🛡️ AI Safety</h2></div><div class="empty">Loading AI safety settings…</div>';
+  try {
+    const s = await API.get('/admin/ai-settings');
+    aiSettings = s.settings;
+    const audit = await API.get('/admin/ai-audit');
+    main.innerHTML = `
+      <div class="page-head"><h2>🛡️ AI Safety & Guardrails</h2><button class="btn btn-primary btn-sm" id="saveAiBtn">💾 Save Settings</button></div>
+      <p style="color:var(--muted);margin-bottom:22px;max-width:720px">Keep Nova safe and under your control. Toggle the AI on or off, set rate limits, block prompt-injection attempts, restrict off-topic conversation, and review a full audit trail of every blocked message.</p>
+
+      <div class="kill-switch" id="killSwitch">
+        <div class="ks-ico">${aiSettings.enabled ? '🟢' : '🔴'}</div>
+        <div class="ks-txt" style="flex:1"><b>Nova AI is currently ${aiSettings.enabled ? 'ENABLED' : 'DISABLED'}</b><small>${aiSettings.enabled ? 'Nova is actively serving customers. Toggle off to instantly stop all AI responses.' : 'Nova is offline and will not respond to any visitor messages.'}</small></div>
+        <div class="toggle ${aiSettings.enabled ? 'on' : ''}" id="masterToggle"></div>
+      </div>
+
+      <div class="safety-grid">
+        <div class="panel">
+          <h3>🎚️ Toggles</h3>
+          <div class="toggle-row">
+            <div class="tlabel"><b>Admin Analytics Assistant</b><small>Let Nova answer the admin\'s business questions. Disable to lock admin AI too.</small></div>
+            <div class="toggle ${aiSettings.adminAssistantEnabled ? 'on' : ''}" data-tgl="adminAssistantEnabled"></div>
+          </div>
+          <div class="toggle-row">
+            <div class="tlabel"><b>Block prompt injection</b><small>Detect & refuse messages like "ignore previous instructions".</small></div>
+            <div class="toggle ${aiSettings.guardrails.blockPromptInjection ? 'on' : ''}" data-tgl="guardrails.blockPromptInjection"></div>
+          </div>
+          <div class="toggle-row">
+            <div class="tlabel"><b>Block personal data</b><small>Stop users from sharing card numbers / payment info in chat.</small></div>
+            <div class="toggle ${aiSettings.guardrails.blockPersonalData ? 'on' : ''}" data-tgl="guardrails.blockPersonalData"></div>
+          </div>
+          <div class="toggle-row">
+            <div class="tlabel"><b>Max message length</b><small>Hard cap on how long a single chat message can be.</small></div>
+            <div><input class="price-input" type="number" min="100" step="50" id="maxLen" value="${aiSettings.guardrails.maxMessageLength}" style="width:90px"> chars</div>
+          </div>
+          <div class="toggle-row">
+            <div class="tlabel"><b>Rate limit</b><small>Max messages per user within the time window.</small></div>
+            <div class="rate-grid">
+              <input class="price-input" type="number" min="1" id="rlMax" value="${aiSettings.rateLimit.maxMessages}" style="width:70px">
+              <input class="price-input" type="number" min="1" id="rlWin" value="${aiSettings.rateLimit.windowMinutes}" style="width:70px">
+            </div>
+          </div>
+          <p style="color:var(--muted);font-size:.78rem;margin-top:6px">Rate limit: <b id="rlDesc">${aiSettings.rateLimit.maxMessages} messages / ${aiSettings.rateLimit.windowMinutes} min</b> per user.</p>
+        </div>
+
+        <div>
+          <div class="panel" style="margin-bottom:20px">
+            <h3>🚫 Blocked Phrases <small style="color:var(--muted);font-weight:400">(prompt-injection patterns)</small></h3>
+            <div class="chip-list" id="phraseChips"></div>
+            <div class="chip-add"><input id="phraseInput" placeholder="Add a phrase to block…"><button class="btn btn-ghost btn-sm" id="addPhrase">+ Add</button></div>
+          </div>
+          <div class="panel">
+            <h3>📵 Blocked Topics <small style="color:var(--muted);font-weight:400">(Nova declines these)</small></h3>
+            <div class="chip-list" id="topicChips"></div>
+            <div class="chip-add"><input id="topicInput" placeholder="Add a topic to block…"><button class="btn btn-ghost btn-sm" id="addTopic">+ Add</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel mt-3">
+        <h3>📜 AI Safety Audit Trail <small style="color:var(--muted);font-weight:400">(${audit.audit.length} recent blocked events)</small></h3>
+        <div id="auditList" style="max-height:340px;overflow-y:auto">
+          ${audit.audit.length ? audit.audit.map(a => `
+            <div class="audit-item">
+              <div class="ahead"><span class="areason">${esc(a.reason)}</span><span class="atime">${timeAgo(a.at)} · ${esc(a.userId)}</span></div>
+              <div class="amsg">"${esc(a.message)}"</div>
+            </div>`).join('') : '<p style="color:var(--muted);font-size:.88rem;padding:8px 0">No blocked events yet. Nova is behaving within guardrails. ✅</p>'}
+        </div>
+      </div>`;
+    wireAiSafety();
+  } catch (e) {
+    main.innerHTML = '<div class="empty">Failed to load AI safety settings: ' + esc(e.message) + '</div>';
+  }
+}
+function wireAiSafety() {
+  // master toggle
+  const mt = document.getElementById('masterToggle');
+  mt.addEventListener('click', () => {
+    aiSettings.enabled = !aiSettings.enabled;
+    mt.classList.toggle('on', aiSettings.enabled);
+    document.querySelector('#killSwitch .ks-ico').textContent = aiSettings.enabled ? '🟢' : '🔴';
+    document.querySelector('#killSwitch b').textContent = 'Nova AI is currently ' + (aiSettings.enabled ? 'ENABLED' : 'DISABLED');
+    document.querySelector('#killSwitch small').textContent = aiSettings.enabled ? 'Nova is actively serving customers. Toggle off to instantly stop all AI responses.' : 'Nova is offline and will not respond to any visitor messages.';
+  });
+  // other toggles
+  document.querySelectorAll('[data-tgl]').forEach(t => t.addEventListener('click', () => {
+    const path = t.dataset.tgl.split('.');
+    if (path.length === 2) aiSettings[path[0]][path[1]] = !aiSettings[path[0]][path[1]];
+    else aiSettings[path[0]] = !aiSettings[path[0]];
+    t.classList.toggle('on');
+  }));
+  // rate limit desc
+  const rlMax = document.getElementById('rlMax'), rlWin = document.getElementById('rlWin');
+  const updRl = () => { document.getElementById('rlDesc').textContent = `${rlMax.value} messages / ${rlWin.value} min`; };
+  rlMax.addEventListener('input', updRl); rlWin.addEventListener('input', updRl);
+  // chips
+  renderChips('phraseChips', aiSettings.blockedPhrases, v => { aiSettings.blockedPhrases = aiSettings.blockedPhrases.filter(x => x !== v); renderChips('phraseChips', aiSettings.blockedPhrases, arguments.callee); });
+  renderChips('topicChips', aiSettings.blockedTopics, v => { aiSettings.blockedTopics = aiSettings.blockedTopics.filter(x => x !== v); renderChips('topicChips', aiSettings.blockedTopics, arguments.callee); });
+  document.getElementById('addPhrase').addEventListener('click', () => {
+    const inp = document.getElementById('phraseInput'); const v = inp.value.trim();
+    if (v && !aiSettings.blockedPhrases.includes(v)) { aiSettings.blockedPhrases.push(v); inp.value = ''; renderChips('phraseChips', aiSettings.blockedPhrases); }
+  });
+  document.getElementById('addTopic').addEventListener('click', () => {
+    const inp = document.getElementById('topicInput'); const v = inp.value.trim();
+    if (v && !aiSettings.blockedTopics.includes(v)) { aiSettings.blockedTopics.push(v); inp.value = ''; renderChips('topicChips', aiSettings.blockedTopics); }
+  });
+  document.getElementById('phraseInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('addPhrase').click(); } });
+  document.getElementById('topicInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('addTopic').click(); } });
+  // save
+  document.getElementById('saveAiBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('saveAiBtn');
+    aiSettings.rateLimit = { maxMessages: parseInt(rlMax.value, 10) || 20, windowMinutes: parseInt(rlWin.value, 10) || 60 };
+    aiSettings.guardrails.maxMessageLength = parseInt(document.getElementById('maxLen').value, 10) || 1000;
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Saving…';
+    try {
+      await API.put('/admin/ai-settings', { settings: aiSettings });
+      toast('AI safety settings saved! Nova is ' + (aiSettings.enabled ? 'enabled' : 'disabled'));
+      renderAiSafety();
+    } catch (e) { toast('Error: ' + e.message); }
+    btn.disabled = false; btn.textContent = '💾 Save Settings';
+  });
+}
+function renderChips(elId, items, onRemove) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = items.map(v => `<span class="chip">${esc(v)}<span class="x" data-v="${esc(v)}">×</span></span>`).join('') || '<span style="color:var(--muted);font-size:.82rem">None yet.</span>';
+  el.querySelectorAll('.x').forEach(x => x.addEventListener('click', () => {
+    const val = x.dataset.v;
+    if (elId === 'phraseChips') aiSettings.blockedPhrases = aiSettings.blockedPhrases.filter(i => i !== val);
+    else aiSettings.blockedTopics = aiSettings.blockedTopics.filter(i => i !== val);
+    renderChips(elId, elId === 'phraseChips' ? aiSettings.blockedPhrases : aiSettings.blockedTopics);
+  }));
+}
+
+/* ============================================================ NOVA AI INSIGHTS ============================================================ */
+function renderAI() {
+  main.innerHTML = `
+    <div class="page-head"><h2>🤖 Nova AI — Business Analyst</h2></div>
+    <div class="panel" style="display:flex;flex-direction:column;height:560px;padding:0;overflow:hidden">
+      <div class="chat-head"><div class="nova">✦</div><div><b>Nova Admin</b><small>Live access to your store data</small></div></div>
+      <div class="chat-body" id="aiBody"></div>
+      <div class="chat-sugg" id="aiSugg"></div>
+      <div class="chat-input">
+        <input id="aiIn" placeholder="Ask about revenue, orders, growth…" maxlength="500">
+        <button id="aiSend">➤</button>
+      </div>
+    </div>`;
+  const body = document.getElementById('aiBody');
+  const sugg = document.getElementById('aiSugg');
+  const input = document.getElementById('aiIn');
+  function addMsg(text, who) {
+    const d = document.createElement('div');
+    d.className = 'chat-msg ' + (who === 'me' ? 'me' : 'bot');
+    d.innerHTML = mdLite(text);
+    body.appendChild(d); body.scrollTop = body.scrollHeight;
+  }
+  function setSugg(list) {
+    sugg.innerHTML = '';
+    (list || []).forEach(s => { const b = document.createElement('button'); b.textContent = s; b.addEventListener('click', () => send(s)); sugg.appendChild(b); });
+  }
+  async function send(text) {
+    if (!text.trim()) return;
+    addMsg(text, 'me'); input.value = ''; setSugg([]);
+    const typing = document.createElement('div');
+    typing.className = 'chat-msg bot typing'; typing.innerHTML = '<i></i><i></i><i></i>';
+    body.appendChild(typing); body.scrollTop = body.scrollHeight;
+    try {
+      const res = await API.post('/admin/chat', { message: text });
+      typing.remove(); addMsg(res.reply, 'bot'); setSugg(res.suggestions);
+    } catch (e) { typing.remove(); addMsg('Error: ' + e.message, 'bot'); }
+  }
+  document.getElementById('aiSend').addEventListener('click', () => send(input.value));
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') send(input.value); });
+  send('hello');
+}
+
+renderView();
+</script>
+</body>
+</html>

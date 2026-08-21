@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Dashboard — CreatiHub</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>">
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://js.paystack.co/v2/inline.js"></script>
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+<div class="container">
+  <div class="dash">
+    <aside class="dash-side">
+      <a href="#orders" class="active" data-view="orders">📦 My Orders</a>
+      <a href="#subs" data-view="subs">🔁 Subscriptions</a>
+      <a href="#new" data-view="new">🛍️ New Order</a>
+      <a href="#profile" data-view="profile">👤 Profile</a>
+      <a href="#security" data-view="security">🔐 Security</a>
+    </aside>
+    <main class="dash-main" id="dashMain"><div class="empty">Loading…</div></main>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+renderNav('dashboard');
+renderFooter();
+initChatWidget();
+
+const user = API.user();
+if (!user) location.href = '/auth?next=' + encodeURIComponent('/dashboard');
+if (user && user.role === 'admin') location.href = '/admin';
+
+const main = document.getElementById('dashMain');
+const sideLinks = document.querySelectorAll('.dash-side a');
+let view = location.hash.slice(1) || 'orders';
+
+sideLinks.forEach(a => a.addEventListener('click', e => {
+  e.preventDefault();
+  view = a.dataset.view;
+  location.hash = view;
+  renderView();
+}));
+
+async function renderView() {
+  sideLinks.forEach(a => a.classList.toggle('active', a.dataset.view === view));
+  if (view === 'orders') return renderOrders();
+  if (view === 'subs') return renderSubscriptions();
+  if (view === 'new') return renderNew();
+  if (view === 'profile') return renderProfile();
+  if (view === 'security') return renderSecurity();
+}
+
+async function renderOrders() {
+  main.innerHTML = `
+    <div class="page-head"><h2>📦 My Orders</h2><a href="/services" class="btn btn-primary btn-sm">+ New Order</a></div>
+    <div id="ordersList"><div class="empty">Loading orders…</div></div>`;
+  try {
+    const { orders } = await API.get('/orders');
+    const list = document.getElementById('ordersList');
+    if (!orders.length) {
+      list.innerHTML = `<div class="empty"><div class="big">🛒</div>No orders yet.<br><br><a href="/services" class="btn btn-primary">Browse Services</a></div>`;
+      return;
+    }
+    list.innerHTML = orders.map(o => `
+      <div class="order-card">
+        <div class="order-top">
+          <span class="oid">${o.id}</span>
+          <span class="badge badge-${o.status}">${o.status.replace('_', ' ')}</span>
+          ${o.paymentStatus === 'paid'
+            ? '<span class="badge badge-paid">💳 paid' + (o.paymentChannel ? ' · ' + esc(o.paymentChannel) : '') + '</span>'
+            : '<span class="badge badge-unpaid">⚠️ unpaid</span>'}
+        </div>
+        <div class="order-svc">${esc(o.serviceName)} — ${esc(o.packageName)} package</div>
+        <div style="color:var(--muted);font-size:.85rem;margin-top:4px">${fmt(o.price)} • Paystack${o.paymentReference ? ' • ref ' + esc(o.paymentReference) : ''} • ${timeAgo(o.createdAt)}</div>
+        ${o.requirements ? `<div class="order-req">📝 ${esc(o.requirements)}</div>` : ''}
+        ${o.paymentStatus !== 'paid' && o.status !== 'cancelled' ? `
+          <div class="pay-banner">
+            <span>⚠️ This order is waiting for payment.</span>
+            <button class="btn btn-primary btn-sm" data-pay="${o.id}">Pay now with Paystack →</button>
+          </div>` : ''}
+        <div class="timeline">
+          ${o.timeline.map(t => `<div class="tl-item"><b>${t.status.replace('_', ' ')}</b> — ${esc(t.note)} <span style="opacity:.7">(${timeAgo(t.at)})</span></div>`).join('')}
+        </div>
+      </div>`).join('');
+    // Wire "Pay now" buttons — re-initializes a Paystack transaction for the order
+    list.querySelectorAll('button[data-pay]').forEach(btn => btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spin"></span> Opening checkout…';
+      try {
+        const { order, payment } = await API.post('/orders/' + btn.dataset.pay + '/repay');
+        if (payment.demo) {
+          location.href = '/payment/callback?reference=' + encodeURIComponent(payment.reference) + '&demo=1';
+          return;
+        }
+        const user = API.user();
+        if (window.PaystackPop && payment.publicKey) {
+          const popup = new PaystackPop();
+          popup.newTransaction({
+            key: payment.publicKey,
+            email: user.email,
+            amount: payment.amount,
+            currency: payment.currency,
+            reference: payment.reference,
+            onSuccess: async (txn) => {
+              try { await API.get('/payments/verify/' + encodeURIComponent(txn.reference || payment.reference)); } catch {}
+              toast('Payment confirmed!');
+              renderOrders();
+            },
+            onCancel: () => { btn.disabled = false; btn.textContent = 'Pay now with Paystack →'; }
+          });
+        } else if (payment.authorizationUrl) {
+          location.href = payment.authorizationUrl;
+        }
+      } catch (e) {
+        toast('Error: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = 'Pay now with Paystack →';
+      }
+    }));
+  } catch (e) {
+    document.getElementById('ordersList').innerHTML = '<div class="empty">Failed to load orders.</div>';
+  }
+}
+
+async function renderSubscriptions() {
+  main.innerHTML = `
+    <div class="page-head"><h2>🔁 My Subscriptions</h2>
+    <a href="/services#retainers" class="btn btn-primary btn-sm">Browse Retainer Plans →</a></div>
+    <div id="subsList"><div class="empty">Loading subscriptions…</div></div>`;
+  try {
+    const { subscriptions } = await API.get('/subscriptions');
+    const list = document.getElementById('subsList');
+    if (!subscriptions.length) {
+      list.innerHTML = `<div class="empty">You have no active subscriptions yet.<br><br><a href="/services#retainers" class="btn btn-primary btn-sm">View Monthly Retainers →</a></div>`;
+      return;
+    }
+    list.innerHTML = subscriptions.map(s => {
+      const statusColor = { active: '#16a34a', pending: '#d97706', cancelled: '#dc2626' }[s.status] || 'var(--muted)';
+      const period = s.currentPeriodEnd ? `<div style="color:var(--muted);font-size:.82rem;margin-top:6px">Next billing: ${new Date(s.currentPeriodEnd).toLocaleDateString()}</div>` : '';
+      const cancelBtn = s.status !== 'cancelled'
+        ? `<button class="btn btn-ghost btn-sm" onclick="cancelSub('${s.id}')">Cancel Subscription</button>`
+        : '<span style="color:var(--muted);font-size:.85rem">Cancelled</span>';
+      return `
+        <div class="svc-card" style="margin-bottom:16px">
+          <div class="svc-body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+            <div>
+              <h3 style="margin:0">${esc(s.planName)}</h3>
+              <div style="margin-top:4px"><span class="price">${fmt(s.planPrice)}<span style="font-size:.8rem;color:var(--muted)">/${s.interval}</span></span>
+              <span style="margin-left:12px;font-weight:600;color:${statusColor};text-transform:capitalize">${s.status}</span></div>
+              ${period}
+              <div style="color:var(--muted);font-size:.82rem;margin-top:4px">Started ${new Date(s.startedAt).toLocaleDateString()} · Ref ${s.reference}</div>
+            </div>
+            <div>${cancelBtn}</div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('subsList').innerHTML = '<div class="empty">Failed to load subscriptions.</div>';
+  }
+}
+
+async function cancelSub(id) {
+  if (!confirm('Cancel this subscription? You will keep access until the end of the current billing period.')) return;
+  try {
+    await API.post('/subscriptions/' + id + '/cancel');
+    renderSubscriptions();
+  } catch (e) {
+    alert('Could not cancel: ' + (e.message || 'Unknown error'));
+  }
+}
+
+async function renderNew() {
+  main.innerHTML = `
+    <div class="page-head"><h2>🛍️ Start a New Order</h2></div>
+    <div class="grid grid-3" id="newGrid"><div class="empty">Loading…</div></div>`;
+  try {
+    const { services } = await API.get('/services?currency=' + getCurrency());
+    document.getElementById('newGrid').innerHTML = services.map(s => `
+      <div class="svc-card">
+        <div class="thumb"><img src="${s.image}" loading="lazy" alt="${esc(s.name)}"><span class="cat">${esc(s.category)}</span></div>
+        <div class="svc-body">
+          <h3>${s.icon} ${esc(s.name)}</h3>
+          <p class="tag">${esc(s.tagline)}</p>
+          <div class="svc-meta"><span class="price">from ${fmt(s.packages[0].price)}</span><span class="rating">★ ${s.rating}</span></div>
+          <a href="/order?service=${s.id}" class="btn btn-primary btn-sm mt-2" style="width:100%">Order →</a>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    document.getElementById('newGrid').innerHTML = '<div class="empty">Failed to load services.</div>';
+  }
+}
+
+function renderProfile() {
+  main.innerHTML = `
+    <div class="page-head"><h2>👤 My Profile</h2></div>
+    <div class="panel" style="max-width:520px">
+      <div class="field"><label>Name</label><input value="${esc(user.name)}" disabled></div>
+      <div class="field"><label>Email</label><input value="${esc(user.email)}" disabled></div>
+      <div class="field"><label>Preferred currency</label>
+        <select id="profCur">${CURRENCIES.map(c => `<option ${c === getCurrency() ? 'selected' : ''}>${c}</option>`).join('')}</select>
+      </div>
+      <button class="btn btn-primary" id="saveCur">Save Preferences</button>
+      <p style="color:var(--muted);font-size:.85rem;margin-top:16px">Member since ${new Date(user.createdAt).toLocaleDateString()}</p>
+    </div>`;
+  document.getElementById('saveCur').addEventListener('click', async () => {
+    const c = document.getElementById('profCur').value;
+    setCurrency(c);
+    try { await API.put('/me/currency', { currency: c }); toast('Preferences saved!'); } catch { toast('Saved locally'); }
+  });
+}
+
+// ---------------- Security: reset login details anytime ----------------
+function renderSecurity() {
+  main.innerHTML = `
+    <div class="page-head"><h2>🔐 Login & Security</h2></div>
+    <p style="color:var(--muted);margin-bottom:22px;max-width:640px">You can reset your login details at any time. Changing your password signs out all your other devices automatically.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start" class="sec-grid">
+      <div class="panel">
+        <h3>🔑 Change Password</h3>
+        <div id="pwMsg"></div>
+        <form id="pwForm">
+          <div class="field"><label>Current password</label><input id="curPw" type="password" required autocomplete="current-password"></div>
+          <div class="field"><label>New password</label><input id="newPw" type="password" required minlength="6" placeholder="Min. 6 characters" autocomplete="new-password"></div>
+          <div class="field"><label>Confirm new password</label><input id="newPw2" type="password" required minlength="6" autocomplete="new-password"></div>
+          <button class="btn btn-primary" style="width:100%" id="pwBtn">Update Password</button>
+        </form>
+      </div>
+      <div class="panel">
+        <h3>✉️ Change Login Email</h3>
+        <div id="emMsg"></div>
+        <form id="emForm">
+          <div class="field"><label>Current email</label><input value="${esc(user.email)}" disabled></div>
+          <div class="field"><label>New email</label><input id="newEm" type="email" required placeholder="you@example.com"></div>
+          <div class="field"><label>Confirm with password</label><input id="emPw" type="password" required autocomplete="current-password"></div>
+          <button class="btn btn-primary" style="width:100%" id="emBtn">Update Email</button>
+        </form>
+        <p style="color:var(--muted);font-size:.82rem;margin-top:16px">💡 Forgot your current password? <a href="/auth?mode=reset" style="color:var(--accent)">Reset it here</a> with a code sent to your email.</p>
+      </div>
+    </div>
+    <style>@media(max-width:860px){.sec-grid{grid-template-columns:1fr!important}}</style>`;
+
+  // Change password
+  document.getElementById('pwForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const m = document.getElementById('pwMsg');
+    const btn = document.getElementById('pwBtn');
+    const cur = document.getElementById('curPw').value;
+    const nw = document.getElementById('newPw').value;
+    const nw2 = document.getElementById('newPw2').value;
+    m.innerHTML = '';
+    if (nw !== nw2) { m.innerHTML = '<div class="form-error">New passwords do not match.</div>'; return; }
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Updating…';
+    try {
+      const res = await API.put('/me/password', { currentPassword: cur, newPassword: nw });
+      m.innerHTML = '<div class="form-ok">' + esc(res.message) + '</div>';
+      document.getElementById('pwForm').reset();
+      toast('Password updated!');
+    } catch (err) {
+      m.innerHTML = '<div class="form-error">' + esc(err.message) + '</div>';
+    }
+    btn.disabled = false; btn.textContent = 'Update Password';
+  });
+
+  // Change email
+  document.getElementById('emForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const m = document.getElementById('emMsg');
+    const btn = document.getElementById('emBtn');
+    m.innerHTML = '';
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Updating…';
+    try {
+      const res = await API.put('/me/email', {
+        newEmail: document.getElementById('newEm').value,
+        password: document.getElementById('emPw').value
+      });
+      API.setSession(API.token(), res.user); // update stored user
+      m.innerHTML = '<div class="form-ok">' + esc(res.message) + ' — you\'ll use it next time you log in.</div>';
+      toast('Login email updated!');
+      setTimeout(() => location.reload(), 1200);
+    } catch (err) {
+      m.innerHTML = '<div class="form-error">' + esc(err.message) + '</div>';
+      btn.disabled = false; btn.textContent = 'Update Email';
+    }
+  });
+}
+
+renderView();
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "name": "creatihub",
+  "version": "1.0.0",
+  "description": "CreatiHub — Global Creative Services Marketplace with AI assistant (Nova), multi-currency pricing, order tracking and admin analytics.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "marketplace",
+    "creative-services",
+    "express",
+    "ai-assistant",
+    "freelance"
+  ],
+  "author": "CreatiHub",
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "pg": "^8.23.0"
+  }
+}

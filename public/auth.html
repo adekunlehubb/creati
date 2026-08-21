@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Account — CreatiHub</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>">
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-art">
+    <div class="inner">
+      <div style="font-size:3.4rem;margin-bottom:16px">✦</div>
+      <h2>Join <span class="grad-text">CreatiHub</span></h2>
+      <p>One account for flyers, videos, cartoons, logos,<br>websites, voiceovers and more —<br>delivered anywhere on Earth 🌍</p>
+      <div class="mt-3" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+        <span class="badge badge-completed">190+ countries</span>
+        <span class="badge badge-in_progress">12 currencies</span>
+        <span class="badge badge-pending">24/7 AI support</span>
+      </div>
+    </div>
+  </div>
+  <div class="auth-form-side">
+    <div class="auth-box">
+      <div class="auth-tabs">
+        <button id="tabLogin">Log In</button>
+        <button id="tabReg" class="active">Register</button>
+        <button id="tabReset">Forgot?</button>
+      </div>
+      <div id="authMsg"></div>
+      <form id="authForm">
+        <div class="field" id="nameField">
+          <label>Full name</label>
+          <input id="fName" placeholder="Jane Doe" autocomplete="name">
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input id="fEmail" type="email" placeholder="you@example.com" required autocomplete="email">
+        </div>
+        <div class="field" id="passField">
+          <label>Password</label>
+          <input id="fPass" type="password" placeholder="Min. 6 characters" required autocomplete="current-password">
+        </div>
+        <!-- Reset-only fields -->
+        <div class="field" id="codeField" style="display:none">
+          <label>Reset code</label>
+          <input id="fCode" placeholder="6-digit code" maxlength="6" inputmode="numeric">
+        </div>
+        <div class="field" id="newPassField" style="display:none">
+          <label>New password</label>
+          <input id="fNewPass" type="password" placeholder="Min. 6 characters" autocomplete="new-password">
+        </div>
+        <div class="field" id="curField">
+          <label>Your currency</label>
+          <select id="fCur">
+            <option value="USD">🇺🇸 USD — US Dollar</option>
+            <option value="EUR">🇪🇺 EUR — Euro</option>
+            <option value="GBP">🇬🇧 GBP — British Pound</option>
+            <option value="NGN">🇳🇬 NGN — Nigerian Naira</option>
+            <option value="INR">🇮🇳 INR — Indian Rupee</option>
+            <option value="KES">🇰🇪 KES — Kenyan Shilling</option>
+            <option value="ZAR">🇿🇦 ZAR — South African Rand</option>
+            <option value="CAD">🇨🇦 CAD — Canadian Dollar</option>
+            <option value="AUD">🇦🇺 AUD — Australian Dollar</option>
+            <option value="AED">🇦🇪 AED — UAE Dirham</option>
+            <option value="BRL">🇧🇷 BRL — Brazilian Real</option>
+            <option value="PHP">🇵🇭 PHP — Philippine Peso</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="submitBtn" style="width:100%;padding:13px">Create Account →</button>
+      </form>
+      <div class="demo-hint">
+        <b>Demo accounts:</b><br>
+        👤 User: <code>demo@creatihub.com</code> / <code>demo123</code><br>
+        🛠️ Admin: <code>admin@creatihub.com</code> / <code>admin123</code>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+renderNav();
+initChatWidget();
+
+const params = new URLSearchParams(location.search);
+let mode = ['login', 'register', 'reset'].includes(params.get('mode')) ? params.get('mode') : 'register';
+const next = params.get('next');
+
+const tabLogin = document.getElementById('tabLogin');
+const tabReg = document.getElementById('tabReg');
+const tabReset = document.getElementById('tabReset');
+const nameField = document.getElementById('nameField');
+const curField = document.getElementById('curField');
+const passField = document.getElementById('passField');
+const codeField = document.getElementById('codeField');
+const newPassField = document.getElementById('newPassField');
+const fPass = document.getElementById('fPass');
+const submitBtn = document.getElementById('submitBtn');
+const msg = document.getElementById('authMsg');
+
+let resetStage = 1; // 1 = request code, 2 = submit code + new password
+
+function setMode(m) {
+  mode = m;
+  resetStage = 1;
+  tabLogin.classList.toggle('active', m === 'login');
+  tabReg.classList.toggle('active', m === 'register');
+  tabReset.classList.toggle('active', m === 'reset');
+  nameField.style.display = m === 'register' ? '' : 'none';
+  curField.style.display = m === 'register' ? '' : 'none';
+  passField.style.display = m === 'reset' ? 'none' : '';
+  codeField.style.display = 'none';
+  newPassField.style.display = 'none';
+  fPass.required = m !== 'reset';
+  submitBtn.textContent = m === 'register' ? 'Create Account →' : m === 'login' ? 'Log In →' : 'Send Reset Code →';
+  msg.innerHTML = m === 'reset'
+    ? '<div class="form-ok" style="border-color:var(--border);color:var(--muted);background:var(--bg2)">Enter your account email and we\'ll send you a 6-digit reset code. Works for both user and admin accounts.</div>'
+    : '';
+}
+tabLogin.addEventListener('click', () => setMode('login'));
+tabReg.addEventListener('click', () => setMode('register'));
+tabReset.addEventListener('click', () => setMode('reset'));
+setMode(mode);
+
+document.getElementById('authForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  msg.innerHTML = '';
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<span class="spin"></span> Please wait…';
+  try {
+    // ---------- RESET FLOW ----------
+    if (mode === 'reset') {
+      const email = document.getElementById('fEmail').value;
+      if (resetStage === 1) {
+        const res = await API.post('/forgot-password', { email });
+        resetStage = 2;
+        codeField.style.display = '';
+        newPassField.style.display = '';
+        document.getElementById('fCode').required = true;
+        document.getElementById('fNewPass').required = true;
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Reset Password →';
+        msg.innerHTML = '<div class="form-ok">' + esc(res.message) +
+          (res.demoCode ? '<br><b>Demo mode — your code is: <code style="font-size:1.1rem;color:var(--accent)">' + res.demoCode + '</code></b> (in production this is emailed)' : '') +
+          '</div>';
+        document.getElementById('fCode').focus();
+        return;
+      }
+      // Stage 2: submit code + new password
+      const res = await API.post('/reset-password', {
+        email,
+        code: document.getElementById('fCode').value,
+        password: document.getElementById('fNewPass').value
+      });
+      msg.innerHTML = '<div class="form-ok">' + esc(res.message) + '</div>';
+      toast('Password reset! Please log in.');
+      setTimeout(() => setMode('login'), 1200);
+      return;
+    }
+
+    // ---------- LOGIN / REGISTER ----------
+    let res;
+    if (mode === 'register') {
+      res = await API.post('/register', {
+        name: document.getElementById('fName').value,
+        email: document.getElementById('fEmail').value,
+        password: fPass.value,
+        currency: document.getElementById('fCur').value
+      });
+    } else {
+      res = await API.post('/login', {
+        email: document.getElementById('fEmail').value,
+        password: fPass.value
+      });
+    }
+    API.setSession(res.token, res.user);
+    setCurrency(res.user.currency || 'USD');
+    toast('Welcome, ' + res.user.name.split(' ')[0] + '!');
+    setTimeout(() => {
+      if (next) location.href = next;
+      else location.href = res.user.role === 'admin' ? '/admin' : '/dashboard';
+    }, 600);
+  } catch (err) {
+    msg.innerHTML = '<div class="form-error">' + esc(err.message) + '</div>';
+    submitBtn.disabled = false;
+    submitBtn.textContent = mode === 'register' ? 'Create Account →' : mode === 'login' ? 'Log In →' : (resetStage === 2 ? 'Reset Password →' : 'Send Reset Code →');
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Runtime database (regenerated from seed on first boot; persisted via host disk/volume)
+data/db.json
+data/backups/
+
+# OS / editor
+.DS_Store
+*.log
+npm-debug.log*
+.idea/
+.vscode/

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Confirming Payment — CreatiHub</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>">
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+<section class="section" style="padding-top:80px">
+  <div class="container" style="max-width:560px">
+    <div class="panel" style="text-align:center;padding:44px 30px" id="cbRoot">
+      <div class="spin" style="width:34px;height:34px;border-width:4px;margin:0 auto 18px"></div>
+      <h3 style="margin:0 0 8px">Confirming your payment…</h3>
+      <p style="color:var(--muted);font-size:.92rem;margin:0">Please wait while we verify with Paystack. Do not close this page.</p>
+    </div>
+  </div>
+</section>
+
+<script src="/js/app.js"></script>
+<script>
+renderNav('');
+renderFooter();
+
+const params = new URLSearchParams(location.search);
+// Paystack appends ?reference=...&trxref=... to the callback URL
+const reference = params.get('reference') || params.get('trxref');
+const root = document.getElementById('cbRoot');
+
+function show(icon, title, body, actions) {
+  root.innerHTML = `
+    <div style="font-size:3rem;margin-bottom:12px">${icon}</div>
+    <h3 style="margin:0 0 10px">${title}</h3>
+    <p style="color:var(--muted);font-size:.93rem;line-height:1.6;margin:0 0 20px">${body}</p>
+    <div class="flex" style="justify-content:center;gap:10px;flex-wrap:wrap">${actions}</div>`;
+}
+
+async function verify(attempt) {
+  if (!reference) {
+    show('⚠️', 'Missing payment reference',
+      'We could not find a payment reference in this link. If you completed a payment, check your dashboard — it updates automatically.',
+      '<a href="/dashboard" class="btn btn-primary">Go to Dashboard</a>');
+    return;
+  }
+  if (!API.user()) {
+    show('🔐', 'Please log in',
+      'Log in to confirm your payment and see your order.',
+      '<a href="/auth?next=' + encodeURIComponent(location.pathname + location.search) + '" class="btn btn-primary">Log in</a>');
+    return;
+  }
+  try {
+    const isSubscription = params.get('subscription') === '1' || (reference && reference.startsWith('SUB'));
+    const endpoint = isSubscription ? '/subscriptions/verify/' : '/payments/verify/';
+    const res = await API.get(endpoint + encodeURIComponent(reference));
+    if (isSubscription) {
+      show('🎉', 'Subscription active!',
+        `Your <b style="color:var(--accent)">${esc(res.subscription.planName)}</b> retainer is now active at $${res.subscription.planPrice}/mo. Manage it from your dashboard.`,
+        '<a href="/dashboard#subs" class="btn btn-primary">View My Subscription →</a>');
+    } else {
+      show('🎉', 'Payment confirmed!',
+        `Your order <b style="color:var(--accent)">${res.order.id}</b> — ${esc(res.order.serviceName)} (${esc(res.order.packageName)}) — is now being processed. You'll track it live in your dashboard.`,
+        '<a href="/dashboard" class="btn btn-primary">View My Order →</a>');
+    }
+    toast('Payment successful!');
+  } catch (e) {
+    // Paystack can take a moment to finalize — retry a few times before giving up
+    if (attempt < 3) {
+      setTimeout(() => verify(attempt + 1), 2500);
+      return;
+    }
+    show('⏳', 'Payment is being processed',
+      esc(e.message) + '<br><br>If you completed the payment, don\'t worry — Paystack will notify us automatically and your order will update shortly.',
+      '<a href="/dashboard" class="btn btn-primary">Check Dashboard</a> <button class="btn btn-ghost" onclick="verify(0)">Retry now</button>');
+  }
+}
+
+verify(0);
+</script>
+</body>
+</html>
