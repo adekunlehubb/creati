@@ -52,15 +52,84 @@ let pool = null;
 let db = null;            // in-memory mirror
 let saveTimer = null;     // debounced save
 
+/**
+ * Parse a DATABASE_URL into individual components so we can pass them
+ * to the Pool individually. This sidesteps a very common Supabase/Neon
+ * problem: if the database password contains special characters like
+ * @ : / # ! $ & and the user did NOT percent-encode them, the native
+ * `connectionString` parser silently mangles the URL and the connection
+ * fails with a confusing error. By parsing manually and passing explicit
+ * `user / password / host / port / database` to the Pool we are immune
+ * to that class of bug.
+ */
+function parseDbUrl(rawUrl) {
+  try {
+    let url = (rawUrl || '').trim();
+    // Match scheme://user:password@host:port/database
+    // The password can contain @, #, !, $, etc. — so we match from the
+    // RIGHT side: find the LAST @ that precedes host:port/database.
+    // Strategy: match scheme, then user, then everything up to the last
+    // "@host:port/db" pattern.
+    const m = url.match(/^(postgresql|postgres):\/\/([^:]+):(.+)@([^:@]+):(\d+)\/([^?]+)/);
+    if (m) {
+      const [, , user, password, host, port, database] = m;
+      // The .+ is greedy, so it will grab as much as possible — but we need
+      // it to match the LAST @ before the host. Use a non-greedy approach
+      // by finding the last @ manually instead.
+    }
+    // More robust approach: manually find the last "@" that is followed by host:port
+    const schemeMatch = url.match(/^(postgresql|postgres):\/\//);
+    if (!schemeMatch) {
+      return { connectionString: url, ssl: process.env.PGSSL === 'false' ? false : { rejectUnauthorized: false } };
+    }
+    const afterScheme = url.slice(schemeMatch[0].length);
+    // Find user:password — everything up to the LAST @ that is followed by host:port/db
+    // The host:port pattern is: something.com:12345/
+    const hostPortPattern = /@([^:@]+):(\d+)\/([^?]+)/;
+    // Find the LAST match of @host:port/db
+    let lastMatch = null;
+    let searchStr = afterScheme;
+    let match;
+    const hostRegex = /@([^:@]+):(\d+)\/([^?]+)/g;
+    while ((match = hostRegex.exec(searchStr)) !== null) {
+      lastMatch = match;
+    }
+    if (lastMatch) {
+      const atIndex = afterScheme.lastIndexOf('@' + lastMatch[1] + ':' + lastMatch[2] + '/');
+      const userPass = afterScheme.slice(0, atIndex);
+      const colonIdx = userPass.indexOf(':');
+      if (colonIdx === -1) {
+        return { connectionString: url, ssl: process.env.PGSSL === 'false' ? false : { rejectUnauthorized: false } };
+      }
+      const user = userPass.slice(0, colonIdx);
+      const password = userPass.slice(colonIdx + 1);
+      const host = lastMatch[1];
+      const port = parseInt(lastMatch[2], 10);
+      const database = lastMatch[3];
+      return {
+        user: decodeURIComponent(user),
+        password: decodeURIComponent(password),
+        host: host,
+        port: port,
+        database: database,
+        ssl: process.env.PGSSL === 'false' ? false : { rejectUnauthorized: false }
+      };
+    }
+    // Fallback: let pg parse it natively
+    return { connectionString: url, ssl: process.env.PGSSL === 'false' ? false : { rejectUnauthorized: false } };
+  } catch (e) {
+    console.error('PG URL parse error:', e.message);
+    return { connectionString: (rawUrl || '').trim(), ssl: process.env.PGSSL === 'false' ? false : { rejectUnauthorized: false } };
+  }
+}
+
 function getPool() {
   if (!pool) {
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      // Render/Railway/Supabase/Neon all use sslmode=require in production
-      ssl: process.env.PGSSL === 'false' ? false : { rejectUnauthorized: false },
-      max: 5,
-      idleTimeoutMillis: 30000
-    });
+    const poolConfig = parseDbUrl(process.env.DATABASE_URL);
+    poolConfig.max = 5;
+    poolConfig.idleTimeoutMillis = 30000;
+    poolConfig.connectionTimeoutMillis = 10000;
+    pool = new Pool(poolConfig);
     pool.on('error', (err) => console.error('PG pool error:', err.message));
   }
   return pool;
@@ -89,23 +158,40 @@ function seedDocument() {
 }
 
 async function load() {
-  const client = getPool();
-  await ensureSchema(client);
-  const res = await client.query(
-    `SELECT data FROM ${STATE_TABLE} WHERE key = $1`, [STATE_KEY]
-  );
-  if (res.rows.length === 0) {
-    // First boot: seed from db.js defaults
-    db = dbFile.makeFreshDb();
-    await persistNow();
-    console.log('📦 Postgres: seeded fresh database');
-  } else {
-    db = res.rows[0].data;
-    // Run any lightweight migration backfill on the hydrated object
-    dbFile.backfill(db);
-    console.log('📦 Postgres: loaded existing database state');
+  const MAX_RETRIES = 5;
+  const RETRY_DELAY = 3000; // 3 seconds between retries
+  let lastErr = null;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const client = getPool();
+      await ensureSchema(client);
+      const res = await client.query(
+        `SELECT data FROM ${STATE_TABLE} WHERE key = $1`, [STATE_KEY]
+      );
+      if (res.rows.length === 0) {
+        // First boot: seed from db.js defaults
+        db = dbFile.makeFreshDb();
+        await persistNow();
+        console.log('Postgres: seeded fresh database');
+      } else {
+        db = res.rows[0].data;
+        // Run any lightweight migration backfill on the hydrated object
+        dbFile.backfill(db);
+        console.log('Postgres: loaded existing database state');
+      }
+      return db;
+    } catch (err) {
+      lastErr = err;
+      console.error(`PG load attempt ${attempt}/${MAX_RETRIES} failed: ${err.message}`);
+      // Reset the pool so the next attempt creates a fresh connection
+      if (pool) { try { await pool.end(); } catch (e) {} pool = null; }
+      if (attempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, RETRY_DELAY));
+      }
+    }
   }
-  return db;
+  throw new Error(`PostgreSQL connection failed after ${MAX_RETRIES} attempts: ${lastErr ? lastErr.message : 'unknown error'}`);
 }
 
 /**

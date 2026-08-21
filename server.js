@@ -1478,7 +1478,17 @@ h1{font-size:72px;line-height:1.1;margin-bottom:30px;font-weight:800;text-shadow
 async function start() {
   if (USE_POSTGRES) {
     // Await the PostgreSQL load so `db` is fully hydrated before serving.
-    db = await dbBackend.load();
+    try {
+      db = await dbBackend.load();
+      console.log('✅ PostgreSQL connected successfully — data is now persistent!');
+    } catch (pgErr) {
+      console.error('⚠️  PostgreSQL connection failed:', pgErr.message);
+      console.error('⚠️  Falling back to JSON-file backend (data will NOT persist across redeploys).');
+      console.error('⚠️  Please check your DATABASE_URL variable in Railway.');
+      // Fall back to JSON file backend
+      const jsonDb = require('./db');
+      db = jsonDb.getDb();
+    }
   }
   app.listen(PORT, () => {
     console.log(`✅ CreatiHub running on http://localhost:${PORT}`);
@@ -1491,5 +1501,16 @@ async function start() {
 
 start().catch(err => {
   console.error('❌ Failed to start CreatiHub:', err.message);
-  process.exit(1);
+  // Don't immediately exit — try one more time with JSON fallback
+  console.error('⚠️  Attempting emergency JSON-file fallback...');
+  try {
+    const jsonDb = require('./db');
+    db = jsonDb.getDb();
+    app.listen(PORT, () => {
+      console.log(`✅ CreatiHub running (JSON fallback) on http://localhost:${PORT}`);
+    });
+  } catch (e2) {
+    console.error('❌ Emergency fallback also failed:', e2.message);
+    process.exit(1);
+  }
 });
