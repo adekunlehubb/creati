@@ -29,7 +29,7 @@ const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 
 // Sender address. Can be overridden via env. Default uses onboarding@resend.dev
 // which works out-of-the-box for testing before you verify your own domain.
-const FROM_EMAIL = process.env.MAIL_FROM || 'CreatiHub <noreply@creatihub.com.ng>';
+const FROM_EMAIL = process.env.MAIL_FROM || 'CreatiHub <onboarding@resend.dev>';
 const REPLY_TO = process.env.MAIL_REPLY_TO || 'admin@creatihub.com.ng';
 
 /**
