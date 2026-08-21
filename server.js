@@ -1682,9 +1682,18 @@ async function start() {
       console.error('⚠️  PostgreSQL connection failed:', pgErr.message);
       console.error('⚠️  Falling back to JSON-file backend (data will NOT persist across redeploys).');
       console.error('⚠️  Please check your DATABASE_URL variable in Railway.');
-      // Fall back to JSON file backend
+      // Fall back to JSON file backend — also switch dbBackend so sendEmail/notify
+      // use the JSON versions (otherwise db-pg.js getDb() throws "not yet loaded")
       const jsonDb = require('./db');
       db = jsonDb.getDb();
+      // Re-bind the helper functions to the JSON backend
+      Object.assign(dbBackend, {
+        sendEmail: jsonDb.sendEmail,
+        notify: jsonDb.notify,
+        logActivity: jsonDb.logActivity,
+        getDb: jsonDb.getDb,
+        save: jsonDb.save
+      });
     }
   }
   app.listen(PORT, () => {
