@@ -302,32 +302,43 @@ async function sendEmail(to, subject, body) {
   }
 }
 function logAiActivity(type, actor, action, detail) {
-  const d = getDb();
-  d.aiActivity.unshift({ id: uid('ai'), type, actor, action, detail, at: new Date().toISOString() });
-  if (d.aiActivity.length > 300) d.aiActivity = d.aiActivity.slice(0, 300);
-  save();
+  try {
+    const d = getDb();
+    d.aiActivity.unshift({ id: uid('ai'), type, actor, action, detail, at: new Date().toISOString() });
+    if (d.aiActivity.length > 300) d.aiActivity = d.aiActivity.slice(0, 300);
+    save();
+  } catch (e) { /* DB not loaded */ }
 }
 function aiAuditLog(userId, message, reason) {
-  const d = getDb();
-  d.aiAudit.unshift({ id: uid('au'), userId, message, reason, at: new Date().toISOString() });
-  if (d.aiAudit.length > 200) d.aiAudit = d.aiAudit.slice(0, 200);
-  save();
+  try {
+    const d = getDb();
+    d.aiAudit.unshift({ id: uid('au'), userId, message, reason, at: new Date().toISOString() });
+    if (d.aiAudit.length > 200) d.aiAudit = d.aiAudit.slice(0, 200);
+    save();
+  } catch (e) { /* DB not loaded */ }
 }
 function logPriceChange(serviceId, serviceName, packageId, packageName, oldPrice, newPrice, by) {
-  const d = getDb();
-  d.priceHistory.unshift({ id: uid('ph'), serviceId, serviceName, packageId, packageName, oldPrice, newPrice, by, at: new Date().toISOString() });
-  if (d.priceHistory.length > 200) d.priceHistory = d.priceHistory.slice(0, 200);
-  save();
+  try {
+    const d = getDb();
+    if (!d.priceHistory) d.priceHistory = [];
+    d.priceHistory.unshift({ id: uid('ph'), serviceId, serviceName, packageId, packageName, oldPrice, newPrice, by, at: new Date().toISOString() });
+    if (d.priceHistory.length > 200) d.priceHistory = d.priceHistory.slice(0, 200);
+    save();
+  } catch (e) { /* DB not loaded — price still changed, just not logged */ }
 }
 function markNotificationRead(id) {
-  const d = getDb();
-  const n = d.notifications.find(x => x.id === id);
-  if (n) { n.read = true; save(); }
+  try {
+    const d = getDb();
+    const n = d.notifications.find(x => x.id === id);
+    if (n) { n.read = true; save(); }
+  } catch (e) { /* DB not loaded */ }
 }
 function markAllNotificationsRead() {
-  const d = getDb();
-  d.notifications.forEach(n => { n.read = true; });
-  save();
+  try {
+    const d = getDb();
+    d.notifications.forEach(n => { n.read = true; });
+    save();
+  } catch (e) { /* DB not loaded */ }
 }
 
 // --- reset codes -----------------------------------------------------

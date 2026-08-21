@@ -477,6 +477,15 @@ async function renderSecurity() {
           <button class="btn btn-primary" style="width:100%" id="apwBtn">Update My Password</button>
         </form>
         <p style="color:var(--muted);font-size:.82rem;margin-top:16px">💡 Locked out? Use the <a href="/auth?mode=reset" style="color:var(--accent)">forgot-password flow</a> — it works for admin accounts too.</p>
+        <hr style="border:none;border-top:1px solid var(--border);margin:20px 0">
+        <h3>📧 My Admin Email (Username)</h3>
+        <div id="aemMsg"></div>
+        <form id="aemForm">
+          <div class="field"><label>Current email</label><input id="aCurEmail" type="email" disabled value="${esc(API.user()?.email || '')}" style="opacity:.6"></div>
+          <div class="field"><label>New email address</label><input id="aNewEmail" type="email" required placeholder="new-email@example.com"></div>
+          <div class="field"><label>Confirm with your password</label><input id="aEmPw" type="password" required placeholder="Enter your current password"></div>
+          <button class="btn btn-primary" style="width:100%" id="aemBtn">Update My Email</button>
+        </form>
       </div>
       <div class="panel">
         <h3>🛠️ Reset Any Account's Password</h3>
@@ -506,6 +515,25 @@ async function renderSecurity() {
       document.getElementById('apwForm').reset(); toast('Admin password updated!');
     } catch (err) { m.innerHTML = '<div class="form-error">' + esc(err.message) + '</div>'; }
     btn.disabled = false; btn.textContent = 'Update My Password';
+  });
+  document.getElementById('aemForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const m = document.getElementById('aemMsg'); const btn = document.getElementById('aemBtn');
+    const newEmail = document.getElementById('aNewEmail').value.trim().toLowerCase();
+    const pw = document.getElementById('aEmPw').value;
+    m.innerHTML = '';
+    if (!newEmail || !pw) { m.innerHTML = '<div class="form-error">New email and password are required.</div>'; return; }
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Updating…';
+    try {
+      const res = await API.put('/me/email', { newEmail, password: pw });
+      m.innerHTML = '<div class="form-ok">' + esc(res.message) + '</div>';
+      // Update local storage with new email
+      const u = API.user(); if (u) { u.email = newEmail; API.setSession(API.token(), u); }
+      document.getElementById('aemForm').reset();
+      document.getElementById('aCurEmail').value = newEmail;
+      toast('Admin email updated! Use the new email to log in next time.');
+    } catch (err) { m.innerHTML = '<div class="form-error">' + esc(err.message) + '</div>'; }
+    btn.disabled = false; btn.textContent = 'Update My Email';
   });
   document.getElementById('rstForm').addEventListener('submit', async e => {
     e.preventDefault();
