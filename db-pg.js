@@ -245,44 +245,58 @@ function getDb() {
 
 // --- Activity / notification / email helpers (mirror db.js) ----------
 function logActivity(kind, label, detail) {
-  const d = getDb();
-  d.activity.unshift({ id: uid('a'), kind, label, detail, at: new Date().toISOString() });
-  if (d.activity.length > 500) d.activity = d.activity.slice(0, 500);
-  save();
+  try {
+    const d = getDb();
+    d.activity.unshift({ id: uid('a'), kind, label, detail, at: new Date().toISOString() });
+    if (d.activity.length > 500) d.activity = d.activity.slice(0, 500);
+    save();
+  } catch (e) { /* DB not loaded — skip activity log */ }
 }
 function notify(type, title, message, userId) {
-  const d = getDb();
-  d.notifications.unshift({ id: uid('n'), type, title, message, read: false, at: new Date().toISOString(), userId: userId || null });
-  if (d.notifications.length > 100) d.notifications = d.notifications.slice(0, 100);
-  save();
+  try {
+    const d = getDb();
+    d.notifications.unshift({ id: uid('n'), type, title, message, read: false, at: new Date().toISOString(), userId: userId || null });
+    if (d.notifications.length > 100) d.notifications = d.notifications.slice(0, 100);
+    save();
+  } catch (e) { /* DB not loaded — skip notification */ }
 }
 async function sendEmail(to, subject, body) {
-  const d = getDb();
-  if (!d.emails) d.emails = [];
-  const mail = { id: uid('e'), to, subject, body, at: new Date().toISOString(), status: 'queued' };
-  d.emails.unshift(mail);
-  if (d.emails.length > 200) d.emails = d.emails.slice(0, 200);
-  save();
+  // Try to record in outbox, but don't let DB issues block the actual send
+  let d = null;
+  let mail = { id: uid('e'), to, subject, body, at: new Date().toISOString(), status: 'queued' };
+  try {
+    d = getDb();
+    if (!d.emails) d.emails = [];
+    d.emails.unshift(mail);
+    if (d.emails.length > 200) d.emails = d.emails.slice(0, 200);
+    save();
+  } catch (dbErr) {
+    // DB not loaded yet — still send the email, just can't record in outbox
+  }
 
-  // Attempt real delivery via Resend
+  // Attempt real delivery via Resend (always runs, regardless of DB state)
   try {
     const mailer = require('./mailer');
     const result = await mailer.sendOne(to, subject, body);
-    const stored = d.emails.find(e => e.id === mail.id);
-    if (stored) {
-      stored.status = result.status;
-      stored.messageId = result.messageId;
-      stored.error = result.error;
-      stored.sentAt = result.status === 'sent' ? new Date().toISOString() : undefined;
-      save();
+    if (d) {
+      const stored = d.emails.find(e => e.id === mail.id);
+      if (stored) {
+        stored.status = result.status;
+        stored.messageId = result.messageId;
+        stored.error = result.error;
+        stored.sentAt = result.status === 'sent' ? new Date().toISOString() : undefined;
+        save();
+      }
     }
     return { ...mail, ...result };
   } catch (err) {
-    const stored = d.emails.find(e => e.id === mail.id);
-    if (stored) {
-      stored.status = 'failed';
-      stored.error = String(err.message || err).slice(0, 300);
-      save();
+    if (d) {
+      const stored = d.emails.find(e => e.id === mail.id);
+      if (stored) {
+        stored.status = 'failed';
+        stored.error = String(err.message || err).slice(0, 300);
+        save();
+      }
     }
     return { ...mail, status: 'failed', error: String(err.message || err).slice(0, 300) };
   }
