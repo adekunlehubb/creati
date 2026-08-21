@@ -1,0 +1,11 @@
+# Nixpacks configuration for CreatiHub on Railway
+# This explicitly tells Railway's builder to install dependencies and start the app
+
+[phases.install]
+cmds = ["npm ci || npm install"]
+
+[phases.build]
+cmds = ["echo 'Build complete - no build step needed for Node.js app'"]
+
+[start]
+cmd = "node server.js"
