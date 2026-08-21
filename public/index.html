@@ -51,6 +51,9 @@
       <a href="/instant-flyer" class="feat-chip" style="text-decoration:none;color:inherit">
         <div class="fci">📄⚡</div><div class="fct">Instant Flyer</div><div class="fcd">Download a flyer in 5 minutes</div>
       </a>
+      <div class="feat-chip" style="text-decoration:none;color:inherit;cursor:default">
+        <div class="fci">💳</div><div class="fct">Pay in Installments</div><div class="fcd">Split into 2, 3, 4 or 6 payments</div>
+      </div>
     </div>
   </div>
 </section>
@@ -59,10 +62,10 @@
 <section class="section" style="padding-top:0">
   <div class="container">
     <div class="stats-strip">
-      <div class="stat-box"><div class="num">9+</div><div class="lbl">Creative Services</div></div>
+      <div class="stat-box"><div class="num">20+</div><div class="lbl">Creative Services</div></div>
       <div class="stat-box"><div class="num">12</div><div class="lbl">Currencies Supported</div></div>
       <div class="stat-box"><div class="num">40+</div><div class="lbl">Languages for Voiceover</div></div>
-      <div class="stat-box"><div class="num">24/7</div><div class="lbl">AI-Powered Support</div></div>
+      <div class="stat-box"><div class="num">💳 4</div><div class="lbl">Installment Plans</div></div>
     </div>
   </div>
 </section>
@@ -230,6 +233,7 @@ document.querySelectorAll('.faq-q').forEach(btn => {
             <span class="price">from ${fmtDual(s.packages[0].price)}</span>
             <span class="rating">★ ${s.rating}</span>
           </div>
+          <div style="color:var(--muted);font-size:.78rem;margin-top:6px">⏱️ ~${s.deliveryDays}d · 💳 Split available</div>
           <a href="/order?service=${s.id}" class="btn btn-primary btn-sm mt-2" style="width:100%">Order Now</a>
         </div>
       </div>`).join('');

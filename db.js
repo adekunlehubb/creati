@@ -429,7 +429,9 @@ const seedReviews = [
 const seedInstallmentPlans = [
   { id: 'pay-full', name: 'Pay in Full', splits: 1, desc: 'Pay the full amount upfront.', depositPct: 100 },
   { id: 'pay-2', name: 'Pay in 2', splits: 2, desc: 'Pay 50% now, 50% on delivery.', depositPct: 50 },
-  { id: 'pay-3', name: 'Pay in 3', splits: 3, desc: 'Pay 34% now, 33% mid-project, 33% on delivery.', depositPct: 34 }
+  { id: 'pay-3', name: 'Pay in 3', splits: 3, desc: 'Pay 34% now, 33% mid-project, 33% on delivery.', depositPct: 34 },
+  { id: 'pay-4', name: 'Pay in 4', splits: 4, desc: 'Pay 25% now, then 25% at 3 milestones. Great for websites & brand packages.', depositPct: 25 },
+  { id: 'pay-6', name: 'Pay in 6', splits: 6, desc: 'Pay 20% now, then 5 equal payments. Best for large projects over $500.', depositPct: 20 }
 ];
 
 const seedUsers = [
@@ -656,6 +658,11 @@ function backfill(obj) {
   if (!d.leadMagnetLogs) d.leadMagnetLogs = [];                  // free business-name tool usage analytics
   if (!d.instantFlyerOrders) d.instantFlyerOrders = [];          // self-serve instant flyer generator orders
   if (!Array.isArray(d.settings.installmentPlans) || d.settings.installmentPlans.length === 0) d.settings.installmentPlans = seedInstallmentPlans;
+  // Merge any new seed installment plans that are missing (preserve existing/edited ones)
+  if (Array.isArray(d.settings.installmentPlans) && Array.isArray(seedInstallmentPlans)) {
+    const existingInst = new Set(d.settings.installmentPlans.map(p => p.id));
+    seedInstallmentPlans.forEach(p => { if (!existingInst.has(p.id)) d.settings.installmentPlans.push(p); });
+  }
   if (!d.settings.naijaTemplates) d.settings.naijaTemplates = seedNaijaTemplates;
   if (!d.settings.naijaVoiceovers) d.settings.naijaVoiceovers = seedNaijaVoiceovers;
   if (!d.settings.referral) d.settings.referral = { enabled: true, creditUsd: 2, bonusUsd: 2, note: 'Refer a friend — you both get credit toward your next order.' };

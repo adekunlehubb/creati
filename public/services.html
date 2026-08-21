@@ -49,8 +49,8 @@
       <div class="panel" style="background:linear-gradient(135deg,rgba(0,255,163,.08),rgba(0,212,255,.06));text-align:center">
         <div style="font-size:2.5rem;margin-bottom:10px">💳</div>
         <h3 style="margin-bottom:8px">Pay in Installments</h3>
-        <p style="color:var(--muted);font-size:.9rem;line-height:1.6;margin-bottom:16px">Big project? Split your payment into 2 or 3 installments. Pay a deposit now, rest later.</p>
-        <span style="color:var(--accent2);font-weight:700;font-size:.95rem">Available at checkout on any order</span>
+        <p style="color:var(--muted);font-size:.9rem;line-height:1.6;margin-bottom:16px">Big project? Split your payment into 2, 3, 4, or 6 installments. Pay a deposit now, the rest in milestones.</p>
+        <span style="color:var(--accent2);font-weight:700;font-size:.95rem">Available at checkout on every order</span>
       </div>
     </div>
   </div>
@@ -78,7 +78,7 @@ function renderCards() {
           <span class="price">from ${fmtDual(s.packages[0].price)}</span>
           <span class="rating">★ ${s.rating} (${s.orders}+)</span>
         </div>
-        <div style="color:var(--muted);font-size:.82rem;margin-top:8px">⏱️ ~${s.deliveryDays} day delivery</div>
+        <div style="color:var(--muted);font-size:.82rem;margin-top:8px">⏱️ ~${s.deliveryDays} day delivery · 💳 Split payment available</div>
         <a href="/order?service=${s.id}" class="btn btn-primary btn-sm mt-2" style="width:100%">View Packages →</a>
       </div>
     </div>`).join('');

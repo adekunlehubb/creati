@@ -217,9 +217,9 @@ function renderInstallments() {
     <div class="inst-grid">
       ${installmentPlans.map(p => `
         <div class="inst-opt ${p.id === selectedInstallment ? 'selected' : ''}" data-inst="${esc(p.id)}">
-          <div class="io-label">${esc(p.label)}</div>
-          <div class="io-pct">${Math.round(p.depositPct * 100)}%</div>
-          <div class="io-desc">${esc(p.description)}</div>
+          <div class="io-label">${esc(p.name)}</div>
+          <div class="io-pct">${Math.round(p.depositPct)}%</div>
+          <div class="io-desc">${esc(p.desc)}</div>
         </div>`).join('')}
     </div>`;
 }
@@ -282,9 +282,9 @@ function updateTotal() {
   }
   const netTotal = Math.max(0, Math.round((grossTotal - referralDiscount) * 100) / 100);
   
-  // Installment deposit
+  // Installment deposit — depositPct is already a whole number (50 = 50%)
   const instPlan = installmentPlans.find(p => p.id === selectedInstallment);
-  const depositPct = instPlan ? instPlan.depositPct : 1;
+  const depositPct = instPlan ? (instPlan.depositPct / 100) : 1;
   const depositAmount = Math.round(netTotal * depositPct * 100) / 100;
   
   const totalLbl = document.getElementById('totalLbl');
@@ -308,7 +308,7 @@ function updateTotal() {
     addons.forEach(a => lines.push(`🧩 ${esc(a.name)}: <b>+${fmt(a.price)}</b>`));
     if (referralDiscount > 0) lines.push(`🎁 Referral discount: <b>-${fmt(referralDiscount)}</b>`);
     if (selectedInstallment !== 'pay-full' && instPlan) {
-      lines.push(`<span style="color:var(--accent)">💳 Paying in ${instPlan.splits || 2} installments (${instPlan.label})</span>`);
+      lines.push(`<span style="color:var(--accent)">💳 Paying in ${instPlan.splits || 2} installments (${esc(instPlan.name)})</span>`);
       lines.push(`<span style="color:var(--accent2)">Deposit due now: <b>${fmt(depositAmount)}</b></span>`);
       lines.push(`<span style="color:var(--muted)">Remaining (pay later): ${fmt(Math.round((netTotal - depositAmount) * 100) / 100)}</span>`);
     } else {

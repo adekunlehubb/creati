@@ -618,7 +618,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .flyer-frame { width: 100%; aspect-ratio: 4/5; border: none; }
 
 /* ---------- Installment selector ---------- */
-.inst-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 16px 0; }
+.inst-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px; margin: 16px 0; }
 .inst-opt {
   background: var(--bg2); border: 2px solid var(--border); border-radius: 12px;
   padding: 16px; cursor: pointer; text-align: center; transition: all .2s;
