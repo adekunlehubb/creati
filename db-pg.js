@@ -256,11 +256,36 @@ function notify(type, title, message, userId) {
   if (d.notifications.length > 100) d.notifications = d.notifications.slice(0, 100);
   save();
 }
-function sendEmail(to, subject, body) {
+async function sendEmail(to, subject, body) {
   const d = getDb();
-  d.emails.unshift({ id: uid('e'), to, subject, body, at: new Date().toISOString(), status: 'queued' });
+  if (!d.emails) d.emails = [];
+  const mail = { id: uid('e'), to, subject, body, at: new Date().toISOString(), status: 'queued' };
+  d.emails.unshift(mail);
   if (d.emails.length > 200) d.emails = d.emails.slice(0, 200);
   save();
+
+  // Attempt real delivery via Resend
+  try {
+    const mailer = require('./mailer');
+    const result = await mailer.sendOne(to, subject, body);
+    const stored = d.emails.find(e => e.id === mail.id);
+    if (stored) {
+      stored.status = result.status;
+      stored.messageId = result.messageId;
+      stored.error = result.error;
+      stored.sentAt = result.status === 'sent' ? new Date().toISOString() : undefined;
+      save();
+    }
+    return { ...mail, ...result };
+  } catch (err) {
+    const stored = d.emails.find(e => e.id === mail.id);
+    if (stored) {
+      stored.status = 'failed';
+      stored.error = String(err.message || err).slice(0, 300);
+      save();
+    }
+    return { ...mail, status: 'failed', error: String(err.message || err).slice(0, 300) };
+  }
 }
 function logAiActivity(type, actor, action, detail) {
   const d = getDb();

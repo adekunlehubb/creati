@@ -207,6 +207,26 @@ function markOrderPaid(order, info = {}) {
     `${order.userName} paid for ${order.serviceName} (${order.packageName}) — $${order.price}${order.installmentSplits > 1 ? ' (installment: deposit paid)' : ''} via Paystack${info.channel ? ' / ' + info.channel : ''}`);
   notify('payment', `Payment confirmed — ${order.id}`,
     `${order.userName} (${order.userEmail}) paid for:\n\n• Service: ${order.serviceName}\n• Package: ${order.packageName}\n• Amount: $${order.price}${order.installmentSplits > 1 ? ' (installment plan)' : ''}\n• Reference: ${order.paymentReference}\n• Channel: ${order.paymentChannel}\n• Delivery: ${order.whatsappDelivery ? 'WhatsApp ' + (order.whatsappNumber || '') : 'Email'}\n\nThe order is now in your queue.`);
+
+  // Email the buyer a payment confirmation (fire-and-forget, non-blocking)
+  const _fullyPaidNow = order.installmentSplits > 1
+    ? (order.installmentPaidUsd >= order.price)
+    : true;
+  sendEmail(order.userEmail, 'Payment confirmed — ' + order.id,
+    'Hi ' + order.userName + ',\n\n' +
+    'We have received your payment! Here is your receipt:\n\n' +
+    '• Order ID: ' + order.id + '\n' +
+    '• Service: ' + order.serviceName + '\n' +
+    '• Package: ' + order.packageName + '\n' +
+    '• Amount paid: $' + order.price + (order.installmentSplits > 1 ? (_fullyPaidNow ? ' (fully paid)' : ' (installment — deposit received)') : '') + '\n' +
+    '• Payment reference: ' + order.paymentReference + '\n' +
+    '• Payment channel: ' + (order.paymentChannel || 'Paystack') + '\n\n' +
+    (order.installmentSplits > 1 && !_fullyPaidNow ? 'Your remaining installments can be paid from your dashboard anytime.\n\n' : '') +
+    'Your order is now in our creative queue. Our team will start working on it right away. You will receive email updates as your order progresses through each stage.\n\n' +
+    (order.whatsappDelivery ? 'Delivery method: WhatsApp (' + (order.whatsappNumber || '') + ')' : 'Delivery method: Email') + '\n\n' +
+    'Track your order in real-time from your dashboard: https://creatihub.com.ng\n\n' +
+    '— The CreatiHub Team').catch(() => {});
+
   return order;
 }
 
@@ -227,6 +247,20 @@ app.post('/api/register', (req, res) => {
   const token = makeToken();
   db.tokens[token] = user.id;
   save();
+
+  // Send a welcome email to the new user (fire-and-forget, non-blocking)
+  sendEmail(user.email, 'Welcome to CreatiHub!',
+    'Hi ' + user.name + ',\n\n' +
+    'Welcome to CreatiHub — Nigeria\'s creative services marketplace!\n\n' +
+    'Your account is ready. Here\'s what you can do next:\n\n' +
+    '• Browse our creative services (logos, social media, websites, branding & more)\n' +
+    '• Place an order in just a few clicks with secure Paystack payment\n' +
+    '• Track your order progress in real-time from your dashboard\n' +
+    '• Chat with Nova, our AI assistant, for instant help 24/7\n\n' +
+    'If you have any questions, just reply to this email or use the support chat on the website.\n\n' +
+    'We\'re excited to create something amazing with you!\n\n' +
+    '— The CreatiHub Team\nhttps://creatihub.com.ng').catch(() => {});
+
   res.json({ token, user: publicUser(user) });
 });
 
@@ -539,6 +573,21 @@ app.post('/api/orders', auth, async (req, res) => {
     save();
     logActivity('order', `New order ${order.id} (awaiting payment)`,
       `${req.user.name} ordered ${svc.name} (${pkg.name}) — $${extras.totalUsd}${extras.rush ? ' [RUSH]' : ''}${extras.addons.length ? ' + addons' : ''} — ref ${reference}`);
+
+    // Email the buyer an order confirmation (fire-and-forget, non-blocking)
+    sendEmail(req.user.email, 'Order placed — ' + order.id,
+      'Hi ' + req.user.name + ',\n\n' +
+      'Thank you for your order! Here are the details:\n\n' +
+      '• Order ID: ' + order.id + '\n' +
+      '• Service: ' + svc.name + '\n' +
+      '• Package: ' + pkg.name + '\n' +
+      '• Total: $' + extras.totalUsd + (isInstallment ? ' (Installment plan — $' + dueNowUsd + ' deposit due now)' : '') + '\n' +
+      '• Rush delivery: ' + (extras.rush ? 'Yes' : 'No') + '\n' +
+      '• Add-ons: ' + (extras.addons.map(a => a.name).join(', ') || 'None') + '\n' +
+      '• Payment reference: ' + reference + '\n\n' +
+      'Next step: Complete your payment via Paystack. Once payment is confirmed, your order moves into our creative queue and you will receive another email update.\n\n' +
+      'You can track your order anytime from your CreatiHub dashboard.\n\n' +
+      '— The CreatiHub Team\nhttps://creatihub.com.ng').catch(() => {});
 
     res.json({
       order,
@@ -872,6 +921,27 @@ app.put('/api/admin/orders/:id', auth, adminOnly, (req, res) => {
   order.status = status;
   order.timeline.push({ status, at: new Date().toISOString(), note: note || 'Status updated by admin' });
   save();
+
+  // Email the buyer about the status change (fire-and-forget)
+  const statusMessages = {
+    pending: 'Your order has been confirmed and is now in our creative queue. Our team will start working on it shortly.',
+    in_progress: 'Great news! Our creative team has started working on your order. You will receive another update when it is ready for delivery.',
+    completed: 'Your order is now complete! The final deliverables are ready. Please check your dashboard to review the work. If you have any issues or need revisions, just let us know. We would love it if you could leave a review for the service you received.',
+    cancelled: 'Your order has been cancelled. ' + (note ? 'Reason: ' + note : 'If you believe this was a mistake, please contact our support team.')
+  };
+  const statusBody = statusMessages[status];
+  if (statusBody && order.userEmail) {
+    sendEmail(order.userEmail, 'Order update — ' + order.id,
+      'Hi ' + order.userName + ',\n\n' +
+      statusBody + '\n\n' +
+      '• Order ID: ' + order.id + '\n' +
+      '• Service: ' + order.serviceName + '\n' +
+      '• Package: ' + order.packageName + '\n' +
+      (note ? '\nNote from CreatiHub: ' + note + '\n' : '') +
+      '\nTrack your order: https://creatihub.com.ng\n\n' +
+      '— The CreatiHub Team').catch(() => {});
+  }
+
   res.json({ order });
 });
 
@@ -939,6 +1009,133 @@ app.put('/api/admin/notifications/:id/read', auth, adminOnly, (req, res) => {
 app.post('/api/admin/notifications/read-all', auth, adminOnly, (req, res) => {
   const changed = markAllNotificationsRead();
   res.json({ ok: true, cleared: changed });
+});
+
+// ---------------- Admin: Email outbox + Broadcast ----------------
+// View the email outbox (sent, failed, and queued emails)
+app.get('/api/admin/emails', auth, adminOnly, (req, res) => {
+  const emails = (db.emails || []).slice(0, 100);
+  const mailer = require('./mailer');
+  res.json({
+    emails,
+    configured: mailer.isConfigured(),
+    fromEmail: mailer.FROM_EMAIL,
+    total: (db.emails || []).length
+  });
+});
+
+// Check email service status (is Resend configured?)
+app.get('/api/admin/emails/status', auth, adminOnly, (req, res) => {
+  const mailer = require('./mailer');
+  const emails = db.emails || [];
+  const sent = emails.filter(e => e.status === 'sent').length;
+  const failed = emails.filter(e => e.status === 'failed').length;
+  const queued = emails.filter(e => e.status === 'queued').length;
+  res.json({
+    configured: mailer.isConfigured(),
+    fromEmail: mailer.FROM_EMAIL,
+    replyTo: mailer.REPLY_TO,
+    stats: { sent, failed, queued, total: emails.length }
+  });
+});
+
+// Broadcast / marketing email to all users (or a specific segment)
+// Body: { subject, body, segment?: 'all' | 'paid' | 'unpaid' }
+// This sends ONE batch email to all matching recipients via Resend.
+app.post('/api/admin/broadcast', auth, adminOnly, async (req, res) => {
+  const { subject, body, segment } = req.body || {};
+  if (!subject || !body) {
+    return res.status(400).json({ error: 'Subject and body are required' });
+  }
+  if (subject.length > 200) {
+    return res.status(400).json({ error: 'Subject must be 200 characters or less' });
+  }
+
+  // Build recipient list based on segment
+  let recipients = db.users.filter(u => u && u.email && u.role !== 'admin');
+  if (segment === 'paid') {
+    const paidUserIds = new Set(db.orders.filter(o => o.paymentStatus === 'paid').map(o => o.userId));
+    recipients = recipients.filter(u => paidUserIds.has(u.id));
+  } else if (segment === 'unpaid') {
+    const paidUserIds = new Set(db.orders.filter(o => o.paymentStatus === 'paid').map(o => o.userId));
+    recipients = recipients.filter(u => !paidUserIds.has(u.id));
+  }
+  // segment === 'all' or undefined → all non-admin users
+
+  const emails = recipients.map(u => u.email);
+  if (emails.length === 0) {
+    return res.json({ ok: true, sent: 0, failed: 0, message: 'No recipients found for this segment' });
+  }
+
+  // Log the broadcast
+  logActivity('email', `Broadcast sent by ${req.user.name}`,
+    `Subject: "${subject}" | Recipients: ${emails.length} (${segment || 'all'})`);
+
+  // Record a copy in the outbox
+  const mailer = require('./mailer');
+  const broadcastRecord = {
+    id: uid('e'),
+    to: `${emails.length} recipients (${segment || 'all'})`,
+    subject: '[BROADCAST] ' + subject,
+    body,
+    at: new Date().toISOString(),
+    status: 'sending',
+    broadcast: true,
+    recipientCount: emails.length
+  };
+  if (!db.emails) db.emails = [];
+  db.emails.unshift(broadcastRecord);
+  if (db.emails.length > 200) db.emails = db.emails.slice(0, 200);
+  save();
+
+  // Send the broadcast via Resend (batch send)
+  try {
+    const result = await mailer.sendBroadcast(emails, subject, body);
+    broadcastRecord.status = result.sent > 0 ? 'sent' : 'failed';
+    broadcastRecord.sentAt = new Date().toISOString();
+    broadcastRecord.sentCount = result.sent;
+    broadcastRecord.failedCount = result.failed;
+    if (result.errors.length) broadcastRecord.error = result.errors.join('; ').slice(0, 300);
+    save();
+
+    res.json({
+      ok: true,
+      sent: result.sent,
+      failed: result.failed,
+      total: emails.length,
+      errors: result.errors,
+      message: result.sent > 0
+        ? `Broadcast sent to ${result.sent} user(s)${result.failed > 0 ? `, ${result.failed} failed` : ''}`
+        : 'No emails were sent. Check if RESEND_API_KEY is configured.'
+    });
+  } catch (err) {
+    broadcastRecord.status = 'failed';
+    broadcastRecord.error = String(err.message || err).slice(0, 300);
+    save();
+    res.status(500).json({ error: 'Broadcast failed: ' + err.message, sent: 0, failed: emails.length });
+  }
+});
+
+// Send a test email (admin can verify email setup is working)
+app.post('/api/admin/emails/test', auth, adminOnly, async (req, res) => {
+  const { to } = req.body || {};
+  const target = to || req.user.email;
+  if (!target) return res.status(400).json({ error: 'No email address to send to' });
+
+  try {
+    const result = await sendEmail(target, 'CreatiHub — Test Email',
+      'This is a test email from CreatiHub.\n\nIf you received this, your email system is working correctly!\n\n— The CreatiHub Team');
+    res.json({
+      ok: result.status === 'sent',
+      status: result.status,
+      error: result.error,
+      message: result.status === 'sent'
+        ? 'Test email sent successfully! Check your inbox.'
+        : 'Email was queued but not sent. Make sure RESEND_API_KEY is set in Railway Variables.'
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Test email failed: ' + err.message });
+  }
 });
 
 // ---------------- Admin: General live activity feed ----------------

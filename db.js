@@ -765,14 +765,43 @@ function notify(type, title, message) {
   return n;
 }
 
-// Queue an email to the outbox. In production, connect SMTP / SendGrid / SES here.
-function sendEmail(to, subject, body) {
+// Send a real email (via Resend if configured) AND record it in the outbox.
+// If RESEND_API_KEY is not set, the email is queued but not delivered (safe fallback).
+// This function is async — callers that need the result can await it, but most
+// callers fire-and-forget (the email sends in the background).
+async function sendEmail(to, subject, body) {
   const d = getDb();
+  if (!d.emails) d.emails = [];
+
+  // Record in outbox immediately as "queued" (optimistic)
   const mail = { id: uid('e'), to, subject, body, at: new Date().toISOString(), status: 'queued' };
   d.emails.unshift(mail);
   if (d.emails.length > 200) d.emails = d.emails.slice(0, 200);
   save();
-  return mail;
+
+  // Attempt real delivery via the mailer module (Resend)
+  try {
+    const mailer = require('./mailer');
+    const result = await mailer.sendOne(to, subject, body);
+    // Update the outbox record with the real status
+    const stored = d.emails.find(e => e.id === mail.id);
+    if (stored) {
+      stored.status = result.status;        // 'sent' or 'failed'
+      stored.messageId = result.messageId;
+      stored.error = result.error;
+      stored.sentAt = result.status === 'sent' ? new Date().toISOString() : undefined;
+      save();
+    }
+    return { ...mail, ...result };
+  } catch (err) {
+    const stored = d.emails.find(e => e.id === mail.id);
+    if (stored) {
+      stored.status = 'failed';
+      stored.error = String(err.message || err).slice(0, 300);
+      save();
+    }
+    return { ...mail, status: 'failed', error: String(err.message || err).slice(0, 300) };
+  }
 }
 
 // ---------------- AI Activity + Audit helpers ----------------
